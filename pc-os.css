@@ -2015,10 +2015,16 @@ body.pc-open #pause-overlay {
 }
 
 .app-glyph::before {
-    content: attr(data-label);
+    content: none;
+}
+
+.app-glyph svg {
     position: relative;
     z-index: 2;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    width: 72%;
+    height: 72%;
+    stroke: currentColor;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.32));
 }
 
 .app-glyph i {
@@ -2044,6 +2050,14 @@ body.pc-open #pause-overlay {
     font-size: 9px;
 }
 
+.app-glyph.task svg,
+.app-glyph.run svg,
+.app-glyph.file svg,
+.app-glyph.window svg {
+    width: 70%;
+    height: 70%;
+}
+
 .app-glyph.window {
     width: 28px;
     height: 28px;
@@ -2061,6 +2075,11 @@ body.pc-open #pause-overlay {
     height: 74px;
     border-radius: 22px;
     font-size: 19px;
+}
+
+.app-glyph.hero svg {
+    width: 68%;
+    height: 68%;
 }
 
 .app-glyph.store {
@@ -2642,4 +2661,70 @@ body.pc-open #pause-overlay {
 
 .w12-desktop.desktop-fullscreen-app .w12-window.max .resize-handle {
     display: none;
+}
+
+/* Hotfix v45: fullscreen app with fixed top frame, no taskbar */
+#pc-os-overlay.pc-app-fullscreen .pc-frame-top {
+    display: none !important;
+}
+
+#pc-os-overlay.pc-app-fullscreen .pc-shell,
+#pc-os-overlay.pc-app-fullscreen .pc-os-root {
+    width: 100vw;
+    height: 100vh;
+}
+
+.w12-desktop.desktop-fullscreen-app .window-layer {
+    inset: 0 !important;
+}
+
+.w12-desktop.desktop-fullscreen-app .desktop-widget,
+.w12-desktop.desktop-fullscreen-app .w12-taskbar,
+.w12-desktop.desktop-fullscreen-app .notification-stack,
+.w12-desktop.desktop-fullscreen-app .desktop-icons,
+.w12-desktop.desktop-fullscreen-app .desktop-noise,
+.w12-desktop.desktop-fullscreen-app .desktop-light,
+.w12-desktop.desktop-fullscreen-app .start-menu,
+.w12-desktop.desktop-fullscreen-app .quick-panel,
+.w12-desktop.desktop-fullscreen-app .desktop-menu,
+.w12-desktop.desktop-fullscreen-app .desktop-selection {
+    display: none !important;
+}
+
+.w12-desktop.desktop-fullscreen-app .w12-window.max {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    display: flex;
+    flex-direction: column;
+    background: #05070b;
+}
+
+.w12-desktop.desktop-fullscreen-app .w12-window.max .window-titlebar {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    height: 38px;
+    min-height: 38px;
+    z-index: 2;
+    transform: none !important;
+    opacity: 1 !important;
+    background: linear-gradient(180deg, rgba(12, 15, 24, 0.98), rgba(7, 10, 17, 0.98)) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: none;
+}
+
+.w12-desktop.desktop-fullscreen-app .w12-window.max .window-body {
+    flex: 1;
+    height: auto !important;
+    min-height: 0;
+    overflow: auto;
+}
+
+.w12-desktop.desktop-fullscreen-app .w12-window.max .resize-handle {
+    display: none !important;
 }
