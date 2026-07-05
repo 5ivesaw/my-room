@@ -221,6 +221,7 @@ class PCSystem {
         this.previewCanvas.width = 640;
         this.previewCanvas.height = 360;
         this.previewDirty = true;
+        this.previewTextureDirty = true;
         this.previewClock = 0;
         this.previewMode = 'still';
         this.closeTimer = null;
@@ -381,8 +382,17 @@ class PCSystem {
         }, 180);
     }
 
+    shutdownExternalFrames() {
+        if (!this.root) return;
+        for (const frame of this.root.querySelectorAll('iframe')) {
+            try { frame.src = 'about:blank'; } catch {}
+            frame.remove();
+        }
+    }
+
     endSession() {
         for (const win of this.windows) this.rememberWindow(win);
+        this.shutdownExternalFrames();
         this.windows = [];
         this.startOpen = false;
         this.quickOpen = false;
@@ -415,9 +425,18 @@ class PCSystem {
     }
 
     consumePreviewDirty() {
-        const dirty = this.previewDirty;
-        this.previewDirty = false;
+        const dirty = this.previewTextureDirty;
+        this.previewTextureDirty = false;
         return dirty;
+    }
+
+    markPreviewDirty() {
+        this.previewDirty = true;
+    }
+
+    finishPreviewRender() {
+        this.previewDirty = false;
+        this.previewTextureDirty = true;
     }
 
     setPreviewMode(mode = 'still') {
@@ -428,7 +447,7 @@ class PCSystem {
     previewInterval() {
         if (this.previewMode === 'normal') return 0.16;
         if (this.previewMode === 'slow') return 0.55;
-        return 2.0;
+        return Number.POSITIVE_INFINITY;
     }
 
     isScreenLit() {
@@ -1816,6 +1835,7 @@ class PCSystem {
     powerOff() {
         this.state.machine.powered = false;
         this.state.machine.phase = 'off';
+        this.shutdownExternalFrames();
         this.windows = [];
         this.startOpen = false;
         this.quickOpen = false;
@@ -1829,6 +1849,7 @@ class PCSystem {
         this.state.machine.phase = 'boot';
         this.bootTimer = 1.1;
         this.bootNextPhase = nextPhase || (this.state.os.installed ? 'login' : 'bootMenu');
+        this.shutdownExternalFrames();
         this.windows = [];
         this.saveState();
         this.render();
@@ -2569,7 +2590,7 @@ class PCSystem {
             ctx.fillStyle = '#7b8898';
             ctx.font = 'bold 52px sans-serif';
             ctx.fillText('NO SIGNAL', 360, 290);
-            this.previewDirty = true;
+            this.finishPreviewRender();
             return;
         }
 
@@ -2583,6 +2604,7 @@ class PCSystem {
             ctx.fillStyle = '#4cc9ff';
             ctx.font = 'bold 34px sans-serif';
             ctx.fillText('PC OFF', 455, 288);
+            this.finishPreviewRender();
             return;
         }
 
@@ -2665,7 +2687,7 @@ class PCSystem {
             ctx.font = 'bold 40px sans-serif';
             ctx.fillText('Sleeping', 430, 292);
         }
-        this.previewDirty = true;
+        this.finishPreviewRender();
     }
 
     drawWallpaper(ctx, w, h, wallpaper) {

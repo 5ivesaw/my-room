@@ -160,6 +160,7 @@ const promptEl = document.getElementById('interaction-prompt');
 let interactions = null;
 
 let hasStarted = false;
+let pcReturnPending = false;
 
 // Handle Window Resize
 window.addEventListener('resize', () => {
@@ -202,13 +203,21 @@ function clearMovementInput() {
 }
 
 window.addEventListener('bedroom-pc-open', () => {
+    pcReturnPending = false;
     pauseOverlay.classList.add('hidden');
     clearMovementInput();
 });
 
 window.addEventListener('bedroom-pc-close', () => {
+    pcReturnPending = true;
     pauseOverlay.classList.add('hidden');
     clearMovementInput();
+});
+
+window.addEventListener('bedroom-pc-hidden', () => {
+    if (!pcReturnPending) return;
+    pcReturnPending = false;
+    updateVisibilityCulling(true);
     if (hasStarted) player.lock();
 });
 
