@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPCSystem } from './pc-os.js?v=45';
+import { createPCSystem } from './pc-os.js?v=46';
 
 export function createWorld(scene, showMessage, audioCtx, sfx) {
     const interactables = [];
@@ -442,6 +442,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     let isRaining = false;
     function toggleRain() {
+        if (window.reportRoomSpam?.('window')) return;
         isRaining = !isRaining;
         rainSystem.visible = isRaining;
         toggleRainAudio(isRaining);
@@ -511,6 +512,154 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     scene.add(bedGroup);
     trackCullable(bedGroup, 2.6);
+
+    // ============ PROCEDURAL RADIO ============
+    const radioGroup = new THREE.Group();
+    radioGroup.position.set(-1.72, 0.86, 2.62);
+    radioGroup.rotation.y = -0.35;
+    const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
+    const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
+    const radioGlowMat = new THREE.MeshBasicMaterial({ color: 0x36d6ff });
+    const radioBody = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.32, 0.22), radioBodyMat);
+    radioGroup.add(radioBody);
+    const radioFace = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.21, 0.018), radioFaceMat);
+    radioFace.position.z = -0.118;
+    radioGroup.add(radioFace);
+    for (const x of [-0.16, -0.08, 0, 0.08, 0.16]) {
+        const grille = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.16, 0.012), metalMat);
+        grille.position.set(x, 0.005, -0.132);
+        radioGroup.add(grille);
+    }
+    const radioDial = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.026, 18), radioGlowMat);
+    radioDial.rotation.x = Math.PI / 2;
+    radioDial.position.set(0.25, 0.05, -0.135);
+    radioGroup.add(radioDial);
+    const radioAntenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.48, 8), metalMat);
+    radioAntenna.rotation.z = -0.55;
+    radioAntenna.position.set(-0.27, 0.32, 0.02);
+    radioGroup.add(radioAntenna);
+    const radioLight = new THREE.PointLight(0x36d6ff, 0, 1.5, 2);
+    radioLight.position.set(0, 0.12, -0.18);
+    radioGroup.add(radioLight);
+    scene.add(radioGroup);
+    trackCullable(radioGroup, 0.8);
+
+    let radioStation = 0;
+    let radioNodes = [];
+    let radioTimer = null;
+    const radioStations = ['off', 'lofi', 'synthwave', 'rain hum'];
+
+    function stopRadio() {
+        if (radioTimer) {
+            clearInterval(radioTimer);
+            radioTimer = null;
+        }
+        for (const node of radioNodes) {
+            try { node.stop?.(); } catch {}
+            try { node.disconnect?.(); } catch {}
+        }
+        radioNodes = [];
+        radioLight.intensity = 0;
+        radioGlowMat.color.setHex(0x36d6ff);
+    }
+
+    function makeNoiseSource(volume, filterFreq) {
+        if (!audioCtx) return null;
+        const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.36;
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = filterFreq;
+        const gain = audioCtx.createGain();
+        gain.gain.value = volume;
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        source.start();
+        radioNodes.push(source, filter, gain);
+        return source;
+    }
+
+    function startRadioStation(index) {
+        stopRadio();
+        radioStation = index;
+        const name = radioStations[radioStation];
+        if (name === 'off') {
+            showMessage('Radio off.');
+            return;
+        }
+        if (!audioCtx) {
+            showMessage('Radio needs audio unlocked first. Click Enter Room again if needed.');
+            return;
+        }
+        const master = audioCtx.createGain();
+        master.gain.value = name === 'rain hum' ? 0.16 : 0.075;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = name === 'synthwave' ? 1200 : 760;
+        filter.connect(master);
+        master.connect(audioCtx.destination);
+        radioNodes.push(master, filter);
+        if (name === 'rain hum') {
+            makeNoiseSource(0.12, 1150);
+            const hum = audioCtx.createOscillator();
+            hum.type = 'sine';
+            hum.frequency.value = 80;
+            hum.connect(filter);
+            hum.start();
+            radioNodes.push(hum);
+            radioGlowMat.color.setHex(0x76d8ff);
+        } else {
+            const chords = name === 'lofi'
+                ? [[196, 246.94, 329.63], [174.61, 220, 293.66], [164.81, 207.65, 261.63], [185, 233.08, 311.13]]
+                : [[110, 220, 277.18], [130.81, 261.63, 329.63], [98, 196, 246.94], [146.83, 293.66, 369.99]];
+            const oscs = chords[0].map((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = name === 'lofi' ? 'sine' : (i === 0 ? 'sawtooth' : 'triangle');
+                osc.frequency.value = freq;
+                gain.gain.value = i === 0 ? 0.46 : 0.22;
+                osc.connect(gain);
+                gain.connect(filter);
+                osc.start();
+                radioNodes.push(osc, gain);
+                return osc;
+            });
+            let chordIndex = 0;
+            radioTimer = setInterval(() => {
+                if (!audioCtx) return;
+                chordIndex = (chordIndex + 1) % chords.length;
+                const now = audioCtx.currentTime;
+                for (let i = 0; i < oscs.length; i++) {
+                    oscs[i].frequency.cancelScheduledValues(now);
+                    oscs[i].frequency.setTargetAtTime(chords[chordIndex][i], now, 0.08);
+                }
+            }, name === 'lofi' ? 1800 : 950);
+            radioGlowMat.color.setHex(name === 'lofi' ? 0xffd36e : 0xff4fd8);
+        }
+        radioLight.color.setHex(name === 'lofi' ? 0xffd36e : name === 'synthwave' ? 0xff4fd8 : 0x76d8ff);
+        radioLight.intensity = 0.55;
+        showMessage(`Radio: ${name}. Procedural local stream playing.`);
+    }
+
+    function toggleRadio() {
+        if (sfx) sfx.play('switch');
+        startRadioStation((radioStation + 1) % radioStations.length);
+    }
+
+    interactables.push({ mesh: radioBody, action: toggleRadio, label: 'Tune Radio' });
+    interactables.push({ mesh: radioDial, action: toggleRadio, label: 'Tune Radio' });
+    updatables.push({
+        update: (dt) => {
+            if (radioStation === 0 || !radioGroup.visible) return;
+            radioDial.rotation.z += dt * 1.8;
+            radioLight.intensity = 0.38 + Math.sin(performance.now() * 0.006) * 0.12;
+        }
+    });
 
     // ============ DESK ============
     const deskGroup = new THREE.Group();
@@ -677,8 +826,59 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     mouseGroup.add(mouseCable);
     deskGroup.add(mouseGroup);
 
+    const pcBurstPieces = [];
+    function triggerPcBurst() {
+        if (pcBurstPieces.length) return;
+        const origin = new THREE.Vector3();
+        pcGroup.getWorldPosition(origin);
+        const partMat = [
+            new THREE.MeshBasicMaterial({ color: 0x36d6ff }),
+            new THREE.MeshBasicMaterial({ color: 0xff4fd8 }),
+            new THREE.MeshBasicMaterial({ color: 0xfff06b }),
+            new THREE.MeshStandardMaterial({ color: 0x171a22, roughness: 0.35, metalness: 0.45 })
+        ];
+        for (let i = 0; i < 26; i++) {
+            const size = 0.035 + Math.random() * 0.07;
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size * (0.5 + Math.random()), size), partMat[i % partMat.length]);
+            mesh.position.copy(origin).add(new THREE.Vector3((Math.random() - 0.5) * 0.28, (Math.random() - 0.2) * 0.34, (Math.random() - 0.5) * 0.28));
+            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            scene.add(mesh);
+            pcBurstPieces.push({
+                mesh,
+                life: 0,
+                maxLife: 1.35 + Math.random() * 0.55,
+                vel: new THREE.Vector3((Math.random() - 0.5) * 2.4, 1.2 + Math.random() * 2.4, (Math.random() - 0.5) * 2.4),
+                rot: new THREE.Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9)
+            });
+        }
+        setPcRgb(false);
+        showMessage('PC RGB overload! It pops apart, then snaps back together.');
+    }
+
+    updatables.push({
+        update: (dt) => {
+            for (let i = pcBurstPieces.length - 1; i >= 0; i--) {
+                const part = pcBurstPieces[i];
+                part.life += dt;
+                part.vel.y -= 4.6 * dt;
+                part.mesh.position.addScaledVector(part.vel, dt);
+                part.mesh.rotation.x += part.rot.x * dt;
+                part.mesh.rotation.y += part.rot.y * dt;
+                part.mesh.rotation.z += part.rot.z * dt;
+                part.mesh.scale.setScalar(Math.max(0, 1 - Math.max(0, part.life - part.maxLife * 0.62) / (part.maxLife * 0.38)));
+                if (part.life >= part.maxLife) {
+                    scene.remove(part.mesh);
+                    part.mesh.geometry.dispose();
+                    pcBurstPieces.splice(i, 1);
+                }
+            }
+            if (!pcBurstPieces.length && !pcRgbOn) setPcRgb(true);
+        }
+    });
+
     const togglePcRgb = () => {
         if (sfx) sfx.play('switch');
+        if (window.reportRoomSpam?.('rgb')) return;
         setPcRgb(!pcRgbOn);
         showMessage(pcRgbOn ? 'PC RGB glows on.' : 'PC RGB goes dark.');
     };
@@ -1013,6 +1213,15 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     updateCatFace('- w -');
     scene.add(catGroup);
     trackCullable(catGroup, 1.0);
+    const catHomePos = catGroup.position.clone();
+    const zoomiePoints = [
+        catHomePos.clone(),
+        new THREE.Vector3(-1.15, 0.96, 1.32),
+        new THREE.Vector3(1.4, 0.96, 1.05),
+        new THREE.Vector3(2.65, 0.96, -0.95),
+        new THREE.Vector3(0.1, 0.96, -1.55),
+        catHomePos.clone()
+    ];
 
     const catCamPos = new THREE.Vector3(-2.0, 1.35, 1.65);
     const catLookAt = new THREE.Vector3(-3.05, 1.05, 2.9);
@@ -1116,13 +1325,39 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             } else {
                 if (catState === 'sleeping' && catStateTime > 4 + Math.random() * 6) {
                     const r = Math.random();
-                    if (r < 0.3) catState = 'looking';
-                    else if (r < 0.6) catState = 'tailWag';
+                    if (r < 0.08) {
+                        catState = 'zoomies';
+                        updateCatFace('O_O');
+                        triggerMeow();
+                    } else if (r < 0.38) catState = 'looking';
+                    else if (r < 0.68) catState = 'tailWag';
                     else catState = 'stretching';
                     catStateTime = 0;
                 }
 
-                if (catState === 'looking') {
+                if (catState === 'zoomies') {
+                    const speed = 1.8;
+                    const total = (zoomiePoints.length - 1) / speed;
+                    const t = Math.min(catStateTime / total, 0.999);
+                    const scaled = t * (zoomiePoints.length - 1);
+                    const idx = Math.min(zoomiePoints.length - 2, Math.floor(scaled));
+                    const local = scaled - idx;
+                    catGroup.position.lerpVectors(zoomiePoints[idx], zoomiePoints[idx + 1], local);
+                    const next = zoomiePoints[idx + 1];
+                    const dx = next.x - catGroup.position.x;
+                    const dz = next.z - catGroup.position.z;
+                    if (Math.abs(dx) + Math.abs(dz) > 0.001) catGroup.rotation.y = Math.atan2(dx, dz);
+                    catBody.position.y = catBreathBaseY + Math.abs(Math.sin(catTimer * 18)) * 0.055;
+                    catTail.rotation.y = Math.sin(catTimer * 18) * 0.72;
+                    if (catStateTime >= total) {
+                        catGroup.position.copy(catHomePos);
+                        catGroup.rotation.y = 0;
+                        catBody.position.y = catBreathBaseY;
+                        catState = 'sleeping';
+                        catStateTime = 0;
+                        updateCatFace('- w -');
+                    }
+                } else if (catState === 'looking') {
                     catHead.rotation.y = Math.sin(catTimer * 2) * 0.5;
                     if (catStateTime > 3) {
                         catHead.rotation.y = 0;
@@ -1993,6 +2228,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         const finishGrab = () => {
             if (sfx) sfx.play(item.type);
             showMessage(item.message);
+            window.reportRoomSpam?.(item.type);
         };
 
         if (window.startCinematic) {
@@ -2174,6 +2410,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             if (options.pcPreview) performanceOptions.pcPreview = options.pcPreview;
             pcSystem.setPreviewMode(performanceOptions.pcPreview);
         },
+        triggerPcBurst,
         fanGroup,
         bladeGroup,
         fanSpeed: () => fanSpeed,

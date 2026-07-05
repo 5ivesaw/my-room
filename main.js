@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=45';
-import { Player } from './player.js?v=45';
-import { InteractionSystem } from './interactions.js?v=45';
-import { sounds } from './sounds.js?v=45';
+import { createWorld } from './world.js?v=46';
+import { Player } from './player.js?v=46';
+import { InteractionSystem } from './interactions.js?v=46';
+import { sounds } from './sounds.js?v=46';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
@@ -158,6 +158,124 @@ const sfx = {
 };
 
 let worldData = null;
+let chaosActive = false;
+const spamEvents = { consume: [], rgb: [], window: [] };
+const spamLimits = {
+    consume: { count: 3, ms: 5200 },
+    rgb: { count: 7, ms: 4200 },
+    window: { count: 6, ms: 5200 }
+};
+
+function ensureChaosOverlay() {
+    let overlay = document.getElementById('chaos-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'chaos-overlay';
+        overlay.setAttribute('aria-live', 'polite');
+        document.body.appendChild(overlay);
+    }
+    return overlay;
+}
+
+function showChaosOverlay(kind, title, subtitle = '', duration = 1600) {
+    const overlay = ensureChaosOverlay();
+    overlay.className = `chaos-overlay ${kind}`;
+    const bits = Array.from({ length: kind === 'window-fall' ? 52 : 34 }, (_, i) => {
+        const x = Math.round(Math.random() * 100);
+        const y = Math.round(Math.random() * 100);
+        const d = (Math.random() * 0.55).toFixed(2);
+        const s = (0.65 + Math.random() * 1.4).toFixed(2);
+        return `<i style="--x:${x}vw;--y:${y}vh;--d:${d}s;--s:${s}"></i>`;
+    }).join('');
+    overlay.innerHTML = `
+        <div class="chaos-city" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="chaos-card">
+            <strong>${title}</strong>
+            ${subtitle ? `<em>${subtitle}</em>` : ''}
+        </div>
+        <div class="chaos-bits" aria-hidden="true">${bits}</div>
+    `;
+    overlay.classList.add('show');
+    window.clearTimeout(overlay._hideTimer);
+    overlay._hideTimer = window.setTimeout(() => overlay.classList.remove('show'), duration);
+}
+
+function unlockFromSpecialStates() {
+    if (document.body.classList.contains('pc-open') && worldData?.closePCSession) worldData.closePCSession();
+    clearMovementInput();
+    isSitting = false;
+    isSittingGamingChair = false;
+    window.isSittingGamingChair = false;
+    isSittingPiano = false;
+    window.isSittingPiano = false;
+    sitAnimPhase = '';
+    sitSpinGroup = null;
+    isHanging = false;
+    hangAnimPhase = '';
+    cinematicPhase = '';
+    cinematicOnComplete = null;
+    armGroup.position.set(0, -1.0, 0);
+    if (interactions) interactions.disableE = false;
+    worldData?.setCatTracking?.(false);
+}
+
+function wakeFromBed(message = 'You wake back up in bed.') {
+    unlockFromSpecialStates();
+    player.yawObject.position.set(-2.75, 1.5, 2.65);
+    player.yawObject.rotation.y = -0.78;
+    player.pitchObject.rotation.x = -Math.PI / 2;
+    player.allowLook = false;
+    isWakingUp = true;
+    if (sfx) sfx.play('wake', false, 0.55);
+    showMessage(message);
+    window.setTimeout(() => {
+        chaosActive = false;
+        player.lock();
+    }, 280);
+}
+
+function triggerSnackOverload() {
+    if (chaosActive) return;
+    chaosActive = true;
+    clearMovementInput();
+    player.allowLook = false;
+    showChaosOverlay('snack-pop', 'SNACK OVERLOAD', 'too much fuel, emergency bed respawn', 1450);
+    if (sfx) sfx.play('error', false, 0.7);
+    window.setTimeout(() => wakeFromBed('Too many snacks too fast. You respawn in bed.'), 1150);
+}
+
+function triggerWindowYeet() {
+    if (chaosActive) return;
+    chaosActive = true;
+    unlockFromSpecialStates();
+    player.allowLook = false;
+    showChaosOverlay('window-fall', 'WINDOW YEET', 'falling past the city... pixel splat incoming', 2700);
+    if (sfx) sfx.play('drop', false, 0.8);
+    window.setTimeout(() => wakeFromBed('That window said no. You wake up in bed.'), 2450);
+}
+
+function triggerRgbOverload() {
+    if (chaosActive) return;
+    showChaosOverlay('rgb-pop', 'RGB OVERCLOCK', 'the PC throws a tiny tantrum, then fixes itself', 1350);
+    worldData?.triggerPcBurst?.();
+    if (sfx) sfx.play('error', false, 0.55);
+}
+
+window.reportRoomSpam = (type) => {
+    const key = type === 'drink' || type === 'eat' || type === 'snack' ? 'consume' : type;
+    const limit = spamLimits[key];
+    if (!limit) return false;
+    const now = performance.now();
+    const bucket = spamEvents[key];
+    bucket.push(now);
+    while (bucket.length && now - bucket[0] > limit.ms) bucket.shift();
+    if (bucket.length < limit.count) return false;
+    bucket.length = 0;
+    if (key === 'consume') triggerSnackOverload();
+    else if (key === 'rgb') triggerRgbOverload();
+    else if (key === 'window') triggerWindowYeet();
+    return true;
+};
 
 // Create Player
 const player = new Player(camera, document.body, sfx);
