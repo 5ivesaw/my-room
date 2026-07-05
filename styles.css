@@ -663,3 +663,179 @@ body.pc-open > #game-container > canvas {
         padding: 24px 20px;
     }
 }
+
+/* Hotfix v45: compact original launch menu */
+#start-screen {
+    background:
+        radial-gradient(circle at 20% 18%, rgba(87, 166, 255, 0.10), transparent 30%),
+        linear-gradient(180deg, #08111d 0%, #0b111b 48%, #060912 100%);
+}
+
+.start-panorama {
+    opacity: 0.86;
+}
+
+.start-panorama::before {
+    opacity: 0.32;
+    background-size: 96px 96px;
+}
+
+.panorama-strip {
+    width: min(1540px, 136vw);
+    height: min(690px, 84vh);
+    opacity: 0.72;
+    filter: saturate(0.82) contrast(0.95) brightness(0.72);
+    animation: panoDrift 5.8s linear infinite alternate;
+}
+
+#start-screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 46%, transparent 0 24%, rgba(2, 4, 8, 0.46) 72%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.start-panel {
+    width: min(420px, calc(100vw - 34px));
+    max-height: calc(100vh - 34px);
+    padding: 22px 20px 20px;
+    border-radius: 10px;
+    border: 2px solid rgba(236, 218, 176, 0.24);
+    background:
+        linear-gradient(180deg, rgba(33, 25, 18, 0.96), rgba(16, 14, 15, 0.98)),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 9px);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.62),
+        inset 0 1px 0 rgba(255,255,255,0.16),
+        inset 0 -2px 0 rgba(0,0,0,0.35);
+    backdrop-filter: none;
+    text-align: center;
+}
+
+.start-kicker {
+    margin: 0 auto 8px;
+    color: #ffe7a3;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.55);
+    letter-spacing: 0.16em;
+    font-size: 10px;
+}
+
+.start-panel h1 {
+    margin: 0 auto 14px;
+    color: #f9f2dc;
+    font-size: clamp(36px, 8vw, 58px);
+    line-height: 0.95;
+    letter-spacing: -0.055em;
+    text-shadow: 0 5px 0 rgba(0,0,0,0.42), 0 0 22px rgba(255, 232, 163, 0.10);
+}
+
+.start-copy {
+    display: none;
+}
+
+.start-actions {
+    justify-content: center;
+    margin: 8px 0 14px;
+}
+
+.start-actions span {
+    display: none;
+}
+
+#enter-btn {
+    min-width: 220px;
+    min-height: 42px;
+    padding: 9px 18px;
+    border: 2px solid rgba(42, 28, 18, 0.78);
+    border-radius: 5px;
+    color: #2a1710;
+    background:
+        linear-gradient(180deg, #f5e7bd, #b98655 52%, #7d4c2e 100%);
+    box-shadow:
+        0 5px 0 #342013,
+        0 12px 24px rgba(0,0,0,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.72);
+    font-size: 15px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+}
+
+#enter-btn:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, #fff1c8, #c8925f 52%, #87522f 100%);
+}
+
+#enter-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #342013, 0 6px 16px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.55);
+}
+
+.start-settings {
+    margin-top: 16px;
+    padding-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    text-align: left;
+}
+
+.settings-head {
+    padding: 0 0 8px;
+    border-bottom: 1px solid rgba(236, 218, 176, 0.20);
+}
+
+.settings-head strong {
+    color: #f9f2dc;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+}
+
+.settings-head span {
+    font-size: 10px;
+    color: rgba(249, 242, 220, 0.48);
+}
+
+.start-settings label {
+    gap: 5px;
+    color: rgba(249, 242, 220, 0.72);
+    font-size: 11px;
+}
+
+.start-settings select {
+    min-height: 34px;
+    border-radius: 5px;
+    border-color: rgba(236, 218, 176, 0.22);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%23f9f2dc' d='M3.2 5.2 7 9l3.8-3.8.9.9L7 10.8 2.3 6.1z'/%3E%3C/svg%3E") no-repeat right 10px center / 12px 12px,
+        rgba(0,0,0,0.18);
+    color: #f9f2dc;
+}
+
+.start-settings select option {
+    background: #211912;
+    color: #f9f2dc;
+}
+
+.check-setting {
+    grid-column: 1 / -1;
+    justify-content: center;
+    margin-top: 2px;
+    color: rgba(249, 242, 220, 0.72) !important;
+}
+
+.check-setting input {
+    accent-color: #d8a45e;
+}
+
+@media (max-width: 640px) {
+    .start-panel {
+        width: min(390px, calc(100vw - 24px));
+        padding: 18px 16px;
+    }
+
+    .start-settings {
+        grid-template-columns: 1fr;
+    }
+}

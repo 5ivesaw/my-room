@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=44';
-import { Player } from './player.js?v=43';
-import { InteractionSystem } from './interactions.js?v=43';
-import { sounds } from './sounds.js?v=43';
+import { createWorld } from './world.js?v=45';
+import { Player } from './player.js?v=45';
+import { InteractionSystem } from './interactions.js?v=45';
+import { sounds } from './sounds.js?v=45';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
+const LOCKED_FOV = 72;
 const QUALITY_PROFILES = {
     performance: { pixelRatio: 0.72 },
     balanced: { pixelRatio: 1.0 },
@@ -14,7 +15,7 @@ const DEFAULT_SETTINGS = {
     quality: 'performance',
     drawDistance: 18,
     pcPreview: 'still',
-    fov: 72,
+    fov: LOCKED_FOV,
     reducedMotion: false
 };
 
@@ -24,7 +25,7 @@ function sanitizeSettings(raw = {}) {
     if (![12, 18, 28].includes(Number(next.drawDistance))) next.drawDistance = DEFAULT_SETTINGS.drawDistance;
     else next.drawDistance = Number(next.drawDistance);
     if (!['still', 'slow', 'normal'].includes(next.pcPreview)) next.pcPreview = DEFAULT_SETTINGS.pcPreview;
-    next.fov = Math.max(60, Math.min(82, Number(next.fov) || DEFAULT_SETTINGS.fov));
+    next.fov = LOCKED_FOV;
     next.reducedMotion = next.reducedMotion === true;
     return next;
 }
@@ -87,8 +88,6 @@ const enterBtn = document.getElementById('enter-btn');
 const qualitySelect = document.getElementById('graphics-quality');
 const drawDistanceSelect = document.getElementById('draw-distance');
 const pcPreviewSelect = document.getElementById('pc-preview');
-const fovRange = document.getElementById('fov-range');
-const fovValue = document.getElementById('fov-value');
 const reducedMotionInput = document.getElementById('reduced-motion');
 const hud = document.getElementById('hud');
 const fadeOverlay = document.getElementById('fade-overlay');
@@ -99,8 +98,6 @@ function syncSettingsUi() {
     if (qualitySelect) qualitySelect.value = settings.quality;
     if (drawDistanceSelect) drawDistanceSelect.value = String(settings.drawDistance);
     if (pcPreviewSelect) pcPreviewSelect.value = settings.pcPreview;
-    if (fovRange) fovRange.value = String(settings.fov);
-    if (fovValue) fovValue.textContent = String(settings.fov);
     if (reducedMotionInput) reducedMotionInput.checked = settings.reducedMotion;
     document.body.classList.toggle('menu-reduced-motion', settings.reducedMotion);
 }
@@ -128,7 +125,6 @@ syncSettingsUi();
 qualitySelect?.addEventListener('change', () => updateSetting('quality', qualitySelect.value));
 drawDistanceSelect?.addEventListener('change', () => updateSetting('drawDistance', Number(drawDistanceSelect.value)));
 pcPreviewSelect?.addEventListener('change', () => updateSetting('pcPreview', pcPreviewSelect.value));
-fovRange?.addEventListener('input', () => updateSetting('fov', Number(fovRange.value)));
 reducedMotionInput?.addEventListener('change', () => updateSetting('reducedMotion', reducedMotionInput.checked));
 
 let messageTimeout = null;
