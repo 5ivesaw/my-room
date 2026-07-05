@@ -1,0 +1,2577 @@
+#pc-os-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(10px);
+    pointer-events: auto;
+    font-family: Inter, Segoe UI, system-ui, sans-serif;
+    color: #f5f8ff;
+}
+
+#pc-os-overlay.pc-hidden {
+    display: none;
+}
+
+body.pc-open #hud,
+body.pc-open #pause-overlay {
+    display: none !important;
+}
+
+.pc-shell {
+    width: min(96vw, 1280px);
+    height: min(92vh, 760px);
+    min-height: 560px;
+    background: #05070b;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 30px 120px rgba(0, 0, 0, 0.8), 0 0 70px rgba(76, 201, 255, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pc-frame-top {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    color: rgba(245, 248, 255, 0.82);
+    background: linear-gradient(180deg, #161b25, #090c12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 13px;
+}
+
+.pc-frame-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent, #4cc9ff);
+    box-shadow: 0 0 18px var(--accent, #4cc9ff);
+}
+
+.pc-close {
+    margin: 0 0 0 auto;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 13px;
+}
+
+.pc-close:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.pc-os-root {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    --accent: #4cc9ff;
+    --panel: rgba(11, 16, 28, 0.78);
+    --panel-strong: rgba(15, 22, 38, 0.95);
+    --text: #f5f8ff;
+    --muted: rgba(245, 248, 255, 0.68);
+    --line: rgba(255, 255, 255, 0.16);
+    --field: rgba(255, 255, 255, 0.1);
+}
+
+.pc-os-root.w12-light {
+    --panel: rgba(245, 249, 255, 0.74);
+    --panel-strong: rgba(255, 255, 255, 0.94);
+    --text: #101522;
+    --muted: rgba(16, 21, 34, 0.62);
+    --line: rgba(16, 21, 34, 0.14);
+    --field: rgba(16, 21, 34, 0.08);
+    color: var(--text);
+}
+
+.pc-os-root button,
+.pc-os-root input,
+.pc-os-root select,
+.pc-os-root textarea {
+    font: inherit;
+}
+
+.pc-os-root button {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.pc-os-root button:hover {
+    border-color: color-mix(in srgb, var(--accent), white 25%);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.pc-os-root button:disabled,
+.pc-os-root input:disabled,
+.pc-os-root select:disabled,
+.pc-os-root textarea:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pc-os-root input,
+.pc-os-root select,
+.pc-os-root textarea {
+    color: var(--text);
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    outline: 0;
+}
+
+.pc-os-root input:focus,
+.pc-os-root select:focus,
+.pc-os-root textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 68%);
+}
+
+.wallpaper-aurora,
+.wallpaper-grid,
+.wallpaper-circuit,
+.wallpaper-sunrise {
+    background-size: cover;
+    background-position: center;
+}
+
+.wallpaper-aurora {
+    background:
+        radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--accent, #4cc9ff), transparent 62%), transparent 26%),
+        linear-gradient(135deg, #0d1028 0%, #243b76 48%, #3b0d54 100%);
+}
+
+.wallpaper-circuit {
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 60px),
+        radial-gradient(circle at 22% 82%, color-mix(in srgb, var(--accent, #4cc9ff), transparent 70%), transparent 28%),
+        linear-gradient(135deg, #06131f, #10284d 52%, #210b38);
+}
+
+.wallpaper-sunrise {
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255, 236, 180, 0.45), transparent 22%),
+        linear-gradient(135deg, #f8c38b, #d47093 46%, #1a2f68);
+}
+
+.wallpaper-grid {
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(135deg, #08111e, #111827 58%, #050810);
+    background-size: 46px 46px, 46px 46px, cover;
+}
+
+.w12-power,
+.w12-login,
+.w12-installer,
+.w12-setup,
+.w12-boot,
+.w12-nosignal,
+.w12-sleep {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.power-card,
+.installer-card,
+.setup-panel,
+.login-card,
+.nosignal-card {
+    width: min(520px, calc(100% - 48px));
+    padding: 28px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(22px);
+}
+
+.power-card h1,
+.installer-card h1,
+.setup-panel h1,
+.login-card h1 {
+    margin: 0 0 10px;
+    font-size: 36px;
+    line-height: 1.05;
+}
+
+.power-card p,
+.installer-card p,
+.setup-panel p,
+.login-card p {
+    color: var(--muted);
+}
+
+.power-orb {
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    margin-bottom: 18px;
+    background: radial-gradient(circle at 34% 34%, #fff, var(--accent) 28%, #122044 70%);
+    box-shadow: 0 0 36px color-mix(in srgb, var(--accent), transparent 30%);
+}
+
+.power-row,
+.installer-actions,
+.seg-row,
+.swatch-row,
+.wallpaper-row,
+.quick-grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.power-row button,
+.installer-actions button,
+.login-card button {
+    padding: 10px 14px;
+}
+
+.eyebrow {
+    margin: 0 0 8px;
+    color: var(--accent) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.w12-boot {
+    flex-direction: column;
+    background: radial-gradient(circle at 50% 34%, #1b315c, #020308 64%);
+}
+
+.boot-mark {
+    width: 96px;
+    height: 96px;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--accent);
+    border-radius: 18px;
+    color: var(--accent);
+    font-size: 42px;
+    font-weight: 800;
+    box-shadow: 0 0 40px color-mix(in srgb, var(--accent), transparent 45%);
+}
+
+.boot-spinner {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+.boot-spinner span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bootPulse 1s infinite ease-in-out;
+}
+
+.boot-spinner span:nth-child(2) { animation-delay: 0.12s; }
+.boot-spinner span:nth-child(3) { animation-delay: 0.24s; }
+.boot-spinner span:nth-child(4) { animation-delay: 0.36s; }
+
+@keyframes bootPulse {
+    0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-6px); }
+}
+
+.boot-menu-panel button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 14px;
+    margin-top: 10px;
+    text-align: left;
+}
+
+.boot-menu-panel button span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.firmware-panel {
+    width: min(900px, calc(100% - 48px));
+}
+
+.firmware-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.firmware-grid section,
+.settings-app section,
+.taskmgr-app section,
+.store-app article,
+.games-app article {
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.firmware-grid button,
+.settings-app button,
+.quick-panel button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+}
+
+.toggle-row {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    text-transform: capitalize;
+}
+
+.toggle-row strong {
+    color: var(--accent);
+}
+
+.installer-card form,
+.installer-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.installer-card label,
+.login-card label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+}
+
+.installer-card input,
+.installer-card select,
+.login-card input {
+    padding: 11px;
+}
+
+.choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.choice-card {
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.swatches {
+    display: flex;
+    gap: 10px;
+}
+
+.swatches label span,
+.swatch-row button {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--swatch);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.swatches input {
+    position: absolute;
+    opacity: 0;
+}
+
+.swatches input:checked + span,
+.swatch-row button.active {
+    outline: 3px solid var(--text);
+}
+
+.progress-track,
+.meter {
+    height: 18px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.progress-track span,
+.meter span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #fff);
+}
+
+.login-card {
+    width: 360px;
+    text-align: center;
+}
+
+.login-avatar {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 16px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent), transparent 55%);
+    border: 1px solid var(--line);
+    font-size: 34px;
+    font-weight: 800;
+}
+
+.login-card input,
+.login-card button {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.hw-warning {
+    color: #ffcf70 !important;
+    font-size: 13px;
+}
+
+.scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 5px);
+    opacity: 0.16;
+}
+
+.w12-sleep {
+    flex-direction: column;
+    background: #020308;
+}
+
+.w12-sleep button {
+    padding: 16px 22px;
+}
+
+.w12-desktop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.desktop-icons {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    display: grid;
+    gap: 12px;
+    z-index: 1;
+}
+
+.desktop-icon {
+    width: 92px;
+    min-height: 78px;
+    display: grid;
+    place-items: center;
+    padding: 8px;
+    background: transparent !important;
+    border-color: transparent !important;
+    color: #fff;
+    text-shadow: 0 1px 5px #000;
+}
+
+.desktop-icon span {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--accent), #0b1020 45%);
+    font-weight: 800;
+}
+
+.desktop-icon em {
+    font-size: 12px;
+    font-style: normal;
+}
+
+.window-layer {
+    position: absolute;
+    inset: 0 0 54px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.w12-window {
+    position: absolute;
+    min-width: 340px;
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(20px);
+    pointer-events: auto;
+}
+
+.w12-window.max {
+    border-radius: 0;
+}
+
+.window-titlebar {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 8px 0 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--line);
+    user-select: none;
+}
+
+.window-icon {
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--accent), transparent 42%);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.window-controls {
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
+}
+
+.window-controls button {
+    width: 32px;
+    height: 27px;
+    padding: 0;
+    border-radius: 5px;
+}
+
+.window-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    height: 30px;
+    cursor: nwse-resize;
+    pointer-events: auto;
+}
+
+.resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    width: 13px;
+    height: 13px;
+    border-right: 2px solid var(--line);
+    border-bottom: 2px solid var(--line);
+}
+
+.w12-taskbar {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    height: 44px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(6, 10, 18, 0.82);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(24px);
+}
+
+.start-button {
+    width: 38px;
+    height: 32px;
+    padding: 0;
+    font-weight: 900;
+    background: color-mix(in srgb, var(--accent), transparent 55%) !important;
+}
+
+.task-search {
+    width: 210px;
+    padding: 8px 12px;
+    text-align: left;
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.task-pins,
+.task-running {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+
+.task-pins button {
+    width: 34px;
+    height: 32px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.task-running {
+    flex: 1;
+    overflow: hidden;
+}
+
+.task-running button {
+    max-width: 150px;
+    height: 32px;
+    padding: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.task-running button.live {
+    border-color: color-mix(in srgb, var(--accent), transparent 22%);
+}
+
+.tray {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.start-menu,
+.quick-panel,
+.desktop-menu {
+    position: absolute;
+    z-index: 20;
+    background: var(--panel-strong);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(24px);
+}
+
+.start-menu {
+    left: 18px;
+    bottom: 66px;
+    width: 520px;
+    max-height: calc(100% - 96px);
+    padding: 16px;
+    overflow: auto;
+}
+
+.start-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.start-menu input {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 14px 0;
+    padding: 11px;
+}
+
+.start-menu h2 {
+    margin: 14px 0 8px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.start-app-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.start-app-grid button {
+    min-height: 72px;
+    display: grid;
+    place-items: center;
+    gap: 5px;
+    padding: 8px;
+    font-size: 12px;
+}
+
+.start-app-grid span {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--accent), transparent 50%);
+    font-weight: 800;
+}
+
+.start-files,
+.link-list {
+    display: grid;
+    gap: 7px;
+}
+
+.start-files button,
+.link-list button {
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.power-strip {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.power-strip button {
+    flex: 1;
+    padding: 9px;
+}
+
+.quick-panel {
+    right: 18px;
+    bottom: 66px;
+    width: 300px;
+    padding: 16px;
+}
+
+.quick-panel h2 {
+    margin: 0 0 12px;
+}
+
+.quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.quick-grid button.on {
+    background: color-mix(in srgb, var(--accent), transparent 62%);
+    border-color: var(--accent);
+}
+
+.quick-panel input {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.desktop-menu {
+    width: 180px;
+    padding: 8px;
+}
+
+.desktop-menu button {
+    width: 100%;
+    padding: 9px;
+    text-align: left;
+    border-color: transparent;
+    background: transparent;
+}
+
+.notification-stack {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 15;
+    display: grid;
+    gap: 10px;
+    width: min(320px, calc(100% - 36px));
+    pointer-events: none;
+}
+
+.toast {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    backdrop-filter: blur(18px);
+}
+
+.toast strong,
+.toast span {
+    display: block;
+}
+
+.toast span {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.files-app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.files-toolbar,
+.browser-bar,
+.note-toolbar,
+.game-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.files-toolbar button,
+.browser-bar button,
+.note-toolbar button,
+.game-toolbar button {
+    padding: 7px 10px;
+}
+
+.files-toolbar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+}
+
+.file-list {
+    padding: 12px;
+    display: grid;
+    gap: 7px;
+}
+
+.file-row {
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: 46px 1fr 80px 150px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.file-row span {
+    color: var(--accent);
+    font-weight: 800;
+}
+
+.file-open {
+    padding: 5px 7px;
+    text-align: left;
+    border-color: transparent !important;
+    background: transparent !important;
+    font-weight: 700;
+}
+
+.file-row em {
+    color: var(--muted);
+    font-style: normal;
+}
+
+.file-row i {
+    display: flex;
+    gap: 5px;
+    font-style: normal;
+}
+
+.file-row i button {
+    padding: 5px 7px;
+    font-size: 12px;
+}
+
+.empty-note,
+.app-empty {
+    padding: 24px;
+    color: var(--muted);
+}
+
+.browser-app,
+.gamehub-app,
+.notepad-app,
+.terminal-app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.browser-bar input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+}
+
+.browser-page {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: color-mix(in srgb, var(--panel-strong), #fff 6%);
+}
+
+.browser-page iframe {
+    width: 100%;
+    height: calc(100% - 36px);
+    border: 0;
+    background: #fff;
+}
+
+.browser-hint {
+    margin: 0;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.gamehub-app {
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(76, 201, 255, 0.2), transparent 34%),
+        radial-gradient(circle at 78% 18%, rgba(255, 79, 216, 0.18), transparent 36%),
+        #030309;
+}
+
+.gamehub-frame {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border: 0;
+    display: block;
+    background: #030309;
+}
+
+.nova-home {
+    min-height: 100%;
+    padding: 28px;
+    background:
+        radial-gradient(circle at 80% 18%, color-mix(in srgb, var(--accent), transparent 70%), transparent 26%),
+        linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+}
+
+.nova-home h1 {
+    margin: 0;
+    font-size: 40px;
+}
+
+.nova-home p,
+.nova-home h2 {
+    color: var(--muted);
+}
+
+.nova-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.nova-cards button {
+    padding: 24px 12px;
+    font-weight: 700;
+}
+
+.settings-app {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+}
+
+.settings-app aside {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 18px;
+    border-right: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-app aside strong {
+    font-size: 22px;
+}
+
+.settings-app aside span {
+    color: var(--muted);
+}
+
+.settings-app main {
+    padding: 18px;
+    overflow: auto;
+    display: grid;
+    gap: 14px;
+}
+
+.settings-app h2 {
+    margin: 0 0 10px;
+}
+
+.seg-row button {
+    flex: 1;
+    padding: 10px;
+}
+
+.seg-row .active,
+.wallpaper-tile.active {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.swatch-row {
+    margin: 12px 0;
+}
+
+.wallpaper-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.wallpaper-tile {
+    min-height: 76px;
+    padding: 8px;
+    text-shadow: 0 1px 5px #000;
+}
+
+.terminal-app {
+    background: #02040a;
+    color: #d8f8dd;
+    font-family: Consolas, Monaco, monospace;
+}
+
+.terminal-app pre {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+.terminal-app form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.terminal-app input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px;
+    color: #d8f8dd;
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.notepad-app textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    border: 0;
+    border-radius: 0;
+    padding: 16px;
+    line-height: 1.5;
+    background: color-mix(in srgb, var(--panel-strong), #fff 7%);
+}
+
+.note-toolbar span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+}
+
+.calculator-app {
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+}
+
+.calculator-app input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px;
+    font-size: 26px;
+    text-align: right;
+}
+
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.calc-grid button {
+    min-height: 52px;
+    font-size: 20px;
+}
+
+.viewer-app,
+.placeholder-app {
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
+}
+
+.viewer-art {
+    width: min(520px, 82%);
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+
+.placeholder-app span {
+    width: 78px;
+    height: 78px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--accent), transparent 55%);
+    font-weight: 900;
+    font-size: 24px;
+}
+
+.taskmgr-app {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 14px;
+    padding: 14px;
+}
+
+.process-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.process-row button {
+    padding: 7px 10px;
+}
+
+.store-app,
+.games-app {
+    padding: 18px;
+}
+
+.store-grid,
+.games-app {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.store-app article span {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--accent), transparent 55%);
+    font-weight: 900;
+}
+
+.store-app article button,
+.games-app article button {
+    padding: 10px 12px;
+}
+
+.mines-app,
+.snake-app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.mines-grid,
+.snake-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+}
+
+.mines-grid button {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border-radius: 5px;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.mines-grid button.open {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.mines-grid button.flag {
+    color: #ffcf70;
+}
+
+.snake-grid {
+    background: #050914;
+}
+
+.snake-grid span {
+    min-width: 0;
+    min-height: 0;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.snake-grid .body {
+    background: color-mix(in srgb, var(--accent), white 10%);
+    box-shadow: 0 0 12px var(--accent);
+}
+
+.snake-grid .head {
+    background: #fff;
+    box-shadow: 0 0 18px var(--accent);
+}
+
+.snake-grid .food {
+    background: #ff4fd8;
+    box-shadow: 0 0 16px #ff4fd8;
+}
+
+@media (max-width: 840px) {
+    .pc-shell {
+        width: 100vw;
+        height: 100vh;
+        min-height: 0;
+    }
+
+    .firmware-grid,
+    .settings-app,
+    .taskmgr-app,
+    .store-grid,
+    .games-app,
+    .wallpaper-row {
+        grid-template-columns: 1fr;
+    }
+
+    .task-search,
+    .task-running {
+        display: none;
+    }
+
+    .start-menu {
+        width: calc(100% - 36px);
+    }
+
+    .start-app-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Phase 3 visual upgrade: premium original desktop skin. */
+#pc-os-overlay {
+    background:
+        radial-gradient(circle at 18% 12%, rgba(76, 201, 255, 0.18), transparent 34%),
+        radial-gradient(circle at 82% 86%, rgba(255, 79, 216, 0.14), transparent 32%),
+        rgba(0, 0, 0, 0.82);
+}
+
+.pc-shell {
+    width: min(97vw, 1360px);
+    height: min(93vh, 820px);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(13, 18, 29, 0.98), rgba(3, 5, 10, 0.99));
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow:
+        0 40px 140px rgba(0, 0, 0, 0.88),
+        0 0 0 1px rgba(76, 201, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.pc-frame-top {
+    height: 38px;
+    background:
+        linear-gradient(90deg, rgba(76, 201, 255, 0.12), transparent 24%, rgba(255, 79, 216, 0.08)),
+        linear-gradient(180deg, rgba(28, 34, 47, 0.98), rgba(8, 11, 17, 0.98));
+}
+
+.pc-close {
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.pc-os-root {
+    --panel: rgba(9, 15, 28, 0.68);
+    --panel-strong: rgba(10, 15, 27, 0.88);
+    --panel-solid: #0b1020;
+    --text: #f8fbff;
+    --muted: rgba(248, 251, 255, 0.68);
+    --line: rgba(255, 255, 255, 0.17);
+    --field: rgba(255, 255, 255, 0.105);
+    --shadow: 0 24px 90px rgba(0, 0, 0, 0.48);
+    --radius: 14px;
+    color: var(--text);
+    font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+.pc-os-root.w12-light {
+    --panel: rgba(247, 250, 255, 0.72);
+    --panel-strong: rgba(255, 255, 255, 0.9);
+    --panel-solid: #f7faff;
+    --text: #0b1020;
+    --muted: rgba(11, 16, 32, 0.65);
+    --line: rgba(12, 18, 34, 0.15);
+    --field: rgba(12, 18, 34, 0.07);
+}
+
+.pc-os-root button {
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.055));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.pc-os-root button:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent), white 28%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 10px 26px rgba(0, 0, 0, 0.2);
+}
+
+.pc-os-root .primary-action {
+    color: #07111d;
+    font-weight: 800;
+    border-color: transparent;
+    background:
+        linear-gradient(135deg, #fff 0%, color-mix(in srgb, var(--accent), white 35%) 38%, var(--accent) 100%);
+    box-shadow: 0 14px 34px color-mix(in srgb, var(--accent), transparent 62%);
+}
+
+.pc-os-root input,
+.pc-os-root select,
+.pc-os-root textarea {
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.wallpaper-aurora {
+    background:
+        radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--accent), transparent 48%), transparent 24%),
+        radial-gradient(circle at 26% 88%, rgba(255, 79, 216, 0.28), transparent 30%),
+        linear-gradient(130deg, #071022 0%, #12406a 38%, #392064 72%, #12051f 100%);
+}
+
+.wallpaper-circuit {
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--accent), transparent 50%), transparent 24%),
+        linear-gradient(135deg, #06121f, #102b52 52%, #250939);
+    background-size: 42px 42px, 42px 42px, cover, cover;
+}
+
+.wallpaper-grid {
+    background:
+        radial-gradient(circle at 18% 82%, rgba(76, 201, 255, 0.26), transparent 32%),
+        radial-gradient(circle at 82% 16%, rgba(154, 124, 255, 0.24), transparent 30%),
+        linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(135deg, #071220, #11182c 58%, #050812);
+    background-size: cover, cover, 48px 48px, 48px 48px, cover;
+}
+
+.wallpaper-sunrise {
+    background:
+        radial-gradient(circle at 30% 24%, rgba(255, 244, 196, 0.72), transparent 18%),
+        radial-gradient(circle at 74% 78%, rgba(76, 201, 255, 0.18), transparent 30%),
+        linear-gradient(135deg, #f6c277, #cf5f82 42%, #1c346b 78%);
+}
+
+.w12-stage {
+    overflow: hidden;
+}
+
+.w12-stage::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+    background:
+        linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.08) 39%, transparent 40% 100%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 86px);
+    mask-image: radial-gradient(circle at 50% 50%, black 0 58%, transparent 80%);
+}
+
+.lux-light {
+    position: absolute;
+    width: 42vw;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(36px);
+    opacity: 0.55;
+}
+
+.lux-a {
+    top: -18%;
+    right: -10%;
+    background: color-mix(in srgb, var(--accent), transparent 35%);
+}
+
+.lux-b {
+    bottom: -24%;
+    left: -16%;
+    background: rgba(255, 79, 216, 0.5);
+}
+
+.premium-card {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.045)),
+        var(--panel);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius);
+    box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(28px) saturate(140%);
+}
+
+.power-card,
+.installer-card,
+.setup-panel,
+.login-card,
+.nosignal-card {
+    position: relative;
+    width: min(980px, calc(100% - 72px));
+    padding: 30px;
+}
+
+.power-card h1,
+.installer-card h1,
+.setup-panel h1,
+.login-card h1 {
+    font-size: clamp(38px, 5vw, 72px);
+    letter-spacing: -0.035em;
+    line-height: 0.94;
+}
+
+.brand-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.brand-chip {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: #05101c;
+    font-weight: 900;
+    background: linear-gradient(135deg, #fff, var(--accent));
+    box-shadow: 0 12px 34px color-mix(in srgb, var(--accent), transparent 55%);
+}
+
+.power-grid,
+.setup-split {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+    gap: 26px;
+    align-items: stretch;
+}
+
+.setup-main {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+}
+
+.setup-copy {
+    max-width: 560px;
+}
+
+.setup-side,
+.device-preview {
+    position: relative;
+    overflow: hidden;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 80% 12%, color-mix(in srgb, var(--accent), transparent 62%), transparent 28%),
+        rgba(255, 255, 255, 0.065);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.device-screen {
+    position: relative;
+    height: 250px;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: #050914;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+}
+
+.preview-wall {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 74% 24%, var(--accent), transparent 28%),
+        linear-gradient(135deg, #112043, #4a1260);
+}
+
+.preview-dock,
+.mini-taskbar {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 16px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(6, 10, 18, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.device-screen > span {
+    position: absolute;
+    width: 82px;
+    height: 58px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.device-screen > span:nth-of-type(1) { left: 28px; top: 34px; }
+.device-screen > span:nth-of-type(2) { left: 128px; top: 72px; width: 124px; }
+.device-screen > span:nth-of-type(3) { right: 30px; top: 40px; height: 122px; }
+
+.device-specs,
+.side-metric {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.device-specs b,
+.side-metric {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.side-metric {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+}
+
+.side-metric span {
+    color: var(--muted);
+}
+
+.power-orb {
+    position: relative;
+    width: 118px;
+    height: 118px;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 34% 28%, #fff, var(--accent) 28%, #243b76 64%, #050914);
+    box-shadow:
+        0 0 50px color-mix(in srgb, var(--accent), transparent 36%),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.power-orb span {
+    position: absolute;
+    inset: 22px;
+    border: 2px solid rgba(255, 255, 255, 0.72);
+    border-radius: 50%;
+}
+
+.boot-core {
+    position: relative;
+    display: grid;
+    place-items: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.w12-boot {
+    background:
+        radial-gradient(circle at 50% 36%, rgba(76, 201, 255, 0.34), transparent 24%),
+        radial-gradient(circle at 52% 40%, rgba(255, 255, 255, 0.16), transparent 10%),
+        #02040a;
+}
+
+.boot-mark {
+    position: relative;
+    width: 124px;
+    height: 124px;
+    border-radius: 32px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.04)),
+        color-mix(in srgb, var(--accent), transparent 78%);
+}
+
+.boot-mark span {
+    width: 86px;
+    height: 86px;
+    display: grid;
+    place-items: center;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #fff, var(--accent));
+    color: #07111d;
+}
+
+.setup-heading {
+    max-width: 720px;
+    margin-bottom: 20px;
+}
+
+.setup-heading h1 {
+    margin-bottom: 12px;
+}
+
+.boot-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    gap: 18px;
+}
+
+.boot-options {
+    display: grid;
+    gap: 12px;
+}
+
+.boot-menu-panel button {
+    min-height: 84px;
+    display: grid;
+    grid-template-columns: 50px 1fr;
+    grid-template-areas: "icon title" "icon desc";
+    align-content: center;
+    gap: 2px 14px;
+    padding: 14px;
+    text-align: left;
+}
+
+.boot-menu-panel button b {
+    grid-area: title;
+    font-size: 17px;
+}
+
+.boot-menu-panel button span {
+    grid-area: desc;
+}
+
+.option-icon {
+    grid-area: icon;
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    background:
+        radial-gradient(circle at 30% 25%, #fff, transparent 24%),
+        linear-gradient(135deg, var(--accent), #3547ff);
+    box-shadow: 0 10px 25px color-mix(in srgb, var(--accent), transparent 65%);
+}
+
+.usb-icon { background: linear-gradient(135deg, #ffb84d, #ff4fd8); }
+.chip-icon { background: linear-gradient(135deg, #7cf27c, #4cc9ff); }
+.wipe-icon { background: linear-gradient(135deg, #ff6a6a, #9a7cff); }
+
+.boot-status-card {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.boot-status-card h2 {
+    margin: 0 0 12px;
+}
+
+.boot-status-card div {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.firmware-panel {
+    width: min(1080px, calc(100% - 56px));
+}
+
+.firmware-grid section,
+.settings-app section,
+.taskmgr-app section,
+.store-app article,
+.games-app article {
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.045));
+}
+
+.firmware-chip-map {
+    height: 118px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.firmware-chip-map span {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.045)),
+        color-mix(in srgb, var(--accent), transparent 82%);
+}
+
+.choice-card {
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+}
+
+.choice-card input {
+    accent-color: var(--accent);
+}
+
+.theme-choice span {
+    display: grid;
+    gap: 5px;
+}
+
+.theme-choice small {
+    color: var(--muted);
+}
+
+.swatches label span,
+.swatch-row button {
+    width: 42px;
+    height: 42px;
+    box-shadow: 0 12px 26px color-mix(in srgb, var(--swatch), transparent 68%);
+}
+
+.setup-side h2 {
+    margin: 18px 0 6px;
+}
+
+.profile-orbit {
+    width: 132px;
+    height: 132px;
+    display: grid;
+    place-items: center;
+    border-radius: 34px;
+    font-size: 42px;
+    font-weight: 900;
+    color: #07111d;
+    background: linear-gradient(135deg, #fff, var(--accent));
+}
+
+.drive-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.drive-stack span {
+    height: 52px;
+    border-radius: 14px;
+    background:
+        linear-gradient(90deg, var(--accent), transparent 18%),
+        rgba(255, 255, 255, 0.09);
+    border: 1px solid var(--line);
+}
+
+.mini-window {
+    position: absolute;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+}
+
+.mini-window.one {
+    width: 58%;
+    height: 34%;
+    left: 24px;
+    top: 34px;
+}
+
+.mini-window.two {
+    width: 44%;
+    height: 46%;
+    right: 28px;
+    top: 96px;
+}
+
+.progress-card {
+    width: min(820px, calc(100% - 60px));
+    display: grid !important;
+    grid-template-columns: 190px 1fr;
+    gap: 28px;
+    align-items: center;
+}
+
+.install-ring {
+    width: 164px;
+    height: 164px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background:
+        conic-gradient(var(--accent) var(--progress), rgba(255, 255, 255, 0.12) 0),
+        rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 50px color-mix(in srgb, var(--accent), transparent 58%);
+}
+
+.install-ring span {
+    width: 118px;
+    height: 118px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(6, 10, 18, 0.86);
+    font-size: 30px;
+    font-weight: 900;
+}
+
+.install-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 14px 0;
+}
+
+.install-steps span {
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.install-steps span.done {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--accent), transparent 20%);
+    background: color-mix(in srgb, var(--accent), transparent 82%);
+}
+
+.login-card {
+    width: 400px;
+    padding: 34px;
+}
+
+.login-avatar {
+    width: 122px;
+    height: 122px;
+    border-radius: 34px;
+    background:
+        linear-gradient(135deg, #fff, var(--accent));
+    box-shadow: 0 18px 55px color-mix(in srgb, var(--accent), transparent 55%);
+}
+
+.login-avatar span {
+    color: #07111d;
+}
+
+.desktop-noise {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.22;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 52px 52px;
+}
+
+.desktop-light {
+    position: absolute;
+    width: 360px;
+    height: 360px;
+    border-radius: 50%;
+    filter: blur(55px);
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+.desktop-light-a {
+    right: 6%;
+    top: 8%;
+    background: color-mix(in srgb, var(--accent), transparent 36%);
+}
+
+.desktop-light-b {
+    left: 36%;
+    bottom: -120px;
+    background: rgba(255, 79, 216, 0.38);
+}
+
+.desktop-icons {
+    top: 22px;
+    left: 22px;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 78px);
+    gap: 10px 16px;
+}
+
+.desktop-icon {
+    width: 94px;
+    min-height: 72px;
+    border-radius: 12px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+.desktop-icon:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.desktop-selection {
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--accent), white 22%);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 76%), rgba(255, 255, 255, 0.08));
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.16) inset,
+        0 0 28px color-mix(in srgb, var(--accent), transparent 68%);
+}
+
+.desktop-icon em {
+    max-width: 92px;
+    line-height: 1.15;
+}
+
+.app-glyph {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    color: #fff;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: -0.02em;
+    background:
+        radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.92), transparent 20%),
+        linear-gradient(135deg, #4cc9ff, #3547ff);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.34),
+        0 10px 25px rgba(0, 0, 0, 0.26);
+}
+
+.app-glyph::before {
+    content: attr(data-label);
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.app-glyph i {
+    position: absolute;
+    inset: auto -8px -10px 12px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.app-glyph.desktop {
+    width: 42px;
+    height: 42px;
+    font-size: 12px;
+}
+
+.app-glyph.task,
+.app-glyph.run,
+.app-glyph.file {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    font-size: 9px;
+}
+
+.app-glyph.window {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+}
+
+.app-glyph.start {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+}
+
+.app-glyph.hero {
+    width: 74px;
+    height: 74px;
+    border-radius: 22px;
+    font-size: 19px;
+}
+
+.app-glyph.store {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    font-size: 13px;
+}
+
+.glyph-files,
+.glyph-folder { background: radial-gradient(circle at 28% 20%, #fff, transparent 18%), linear-gradient(135deg, #63e6be, #2f80ed); }
+.glyph-browser { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #4cc9ff, #9a7cff); }
+.glyph-settings { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #c9d6ff, #6e88ff); }
+.glyph-terminal { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #1bff9b, #083a28); }
+.glyph-notepad,
+.glyph-document { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #fff2a6, #ff9f43); }
+.glyph-calculator { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #9a7cff, #382b78); }
+.glyph-viewer { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #ffb84d, #ff4fd8); }
+.glyph-taskmgr { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #7cf27c, #208a55); }
+.glyph-store { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #4cc9ff, #ff4fd8); }
+.glyph-gamehub { background: radial-gradient(circle at 26% 22%, #fff, transparent 17%), radial-gradient(circle at 72% 70%, rgba(0,0,0,0.26), transparent 24%), linear-gradient(135deg, #00e5ff, #ff3dde 52%, #fff06b); }
+.glyph-games,
+.glyph-mines,
+.glyph-snake { background: radial-gradient(circle at 30% 24%, #fff, transparent 18%), linear-gradient(135deg, #ff4fd8, #9a7cff); }
+
+.desktop-widget {
+    position: absolute;
+    top: 22px;
+    right: 24px;
+    z-index: 1;
+    width: 310px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(7, 12, 22, 0.44);
+    backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: var(--shadow);
+}
+
+.desktop-widget strong {
+    display: block;
+    font-size: 42px;
+    letter-spacing: -0.04em;
+}
+
+.desktop-widget span {
+    color: var(--muted);
+}
+
+.widget-metrics {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0;
+    flex-wrap: wrap;
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.status-chip b {
+    color: var(--accent);
+    font-size: 11px;
+}
+
+.w12-taskbar {
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+    height: 56px;
+    padding: 0 10px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.055)),
+        rgba(5, 9, 17, 0.72);
+    box-shadow:
+        0 18px 58px rgba(0, 0, 0, 0.46),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.start-button {
+    width: 46px;
+    height: 42px;
+    border-radius: 14px;
+}
+
+.start-button span {
+    font-weight: 950;
+}
+
+.task-search {
+    width: 270px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 14px;
+}
+
+.task-search b {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    box-shadow: 8px 8px 0 -6px var(--accent);
+}
+
+.task-pins button {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+}
+
+.task-running button {
+    height: 42px;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tray {
+    height: 42px;
+    border-radius: 13px;
+}
+
+.tray .status-chip {
+    padding: 5px 7px;
+}
+
+.start-menu {
+    left: 24px;
+    bottom: 78px;
+    width: 660px;
+    padding: 18px;
+}
+
+.start-top strong {
+    display: block;
+    font-size: 26px;
+    letter-spacing: -0.03em;
+}
+
+.start-top span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.start-app-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.start-app-grid button {
+    min-height: 92px;
+    border-radius: 16px;
+}
+
+.start-app-grid button > span:not(.app-glyph) {
+    font-size: 12px;
+}
+
+.start-lower {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.start-files button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.start-system {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.quick-panel {
+    right: 24px;
+    bottom: 78px;
+    width: 360px;
+}
+
+.quick-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.quick-grid button {
+    min-height: 78px;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 4px;
+}
+
+.quick-grid button span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.quick-grid button.on {
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 48%), rgba(255, 255, 255, 0.07));
+}
+
+.desktop-menu {
+    border-radius: 14px;
+}
+
+.w12-window {
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+        var(--panel-strong);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow:
+        0 28px 88px rgba(0, 0, 0, 0.46),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.window-titlebar {
+    height: 46px;
+    padding: 0 10px 0 14px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--accent), transparent 86%), transparent 42%),
+        rgba(255, 255, 255, 0.07);
+}
+
+.window-titlebar strong {
+    letter-spacing: -0.01em;
+}
+
+.window-controls button {
+    width: 34px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+}
+
+.window-controls button span {
+    display: block;
+    width: 12px;
+    height: 12px;
+    position: relative;
+}
+
+.win-min span::before {
+    content: "";
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    bottom: 2px;
+    height: 2px;
+    background: currentColor;
+}
+
+.win-max span {
+    border: 2px solid currentColor;
+    border-radius: 3px;
+}
+
+.win-close span::before,
+.win-close span::after {
+    content: "";
+    position: absolute;
+    left: 1px;
+    top: 5px;
+    width: 12px;
+    height: 2px;
+    background: currentColor;
+}
+
+.win-close span::before { transform: rotate(45deg); }
+.win-close span::after { transform: rotate(-45deg); }
+
+.win-close:hover {
+    color: #fff;
+    background: #d93750 !important;
+}
+
+.notification-stack {
+    top: 24px;
+    right: 24px;
+}
+
+.toast {
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
+        rgba(8, 13, 24, 0.74);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.34);
+}
+
+.files-toolbar,
+.browser-bar,
+.note-toolbar,
+.game-toolbar {
+    padding: 12px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--accent), transparent 88%), transparent),
+        rgba(255, 255, 255, 0.055);
+}
+
+.file-list {
+    padding: 16px;
+    gap: 9px;
+}
+
+.file-row {
+    grid-template-columns: 34px 1fr 80px 156px;
+    min-height: 54px;
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.035));
+}
+
+.file-open {
+    color: var(--text) !important;
+}
+
+.browser-bar input {
+    height: 36px;
+}
+
+.nova-home {
+    background:
+        radial-gradient(circle at 84% 18%, color-mix(in srgb, var(--accent), transparent 56%), transparent 26%),
+        radial-gradient(circle at 18% 82%, rgba(255, 79, 216, 0.18), transparent 24%),
+        linear-gradient(135deg, rgba(255,255,255,0.075), rgba(255,255,255,0.02));
+}
+
+.nova-hero,
+.store-hero {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.nova-cards button {
+    min-height: 112px;
+    display: grid;
+    align-content: end;
+    justify-items: start;
+    border-radius: 18px;
+    text-align: left;
+    background:
+        radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--accent), transparent 60%), transparent 34%),
+        rgba(255, 255, 255, 0.08);
+}
+
+.nova-cards button b {
+    font-size: 18px;
+}
+
+.nova-cards button span {
+    color: var(--muted);
+}
+
+.settings-app {
+    background:
+        radial-gradient(circle at 90% 8%, color-mix(in srgb, var(--accent), transparent 75%), transparent 28%),
+        transparent;
+}
+
+.settings-app aside {
+    padding: 22px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+}
+
+.settings-app aside strong {
+    font-size: 28px;
+    letter-spacing: -0.04em;
+}
+
+.settings-app main {
+    padding: 22px;
+}
+
+.settings-app section {
+    padding: 18px;
+}
+
+.wallpaper-tile {
+    min-height: 104px;
+    border-radius: 16px;
+    align-content: end;
+    font-weight: 800;
+}
+
+.terminal-app {
+    background:
+        radial-gradient(circle at 92% 12%, rgba(124, 242, 124, 0.12), transparent 28%),
+        #02050b;
+}
+
+.terminal-app pre {
+    padding: 18px;
+    line-height: 1.45;
+}
+
+.notepad-app textarea {
+    padding: 22px;
+    font-size: 16px;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        color-mix(in srgb, var(--panel-strong), #fff 8%);
+    background-size: 32px 32px, cover;
+}
+
+.calculator-app {
+    background:
+        radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent), transparent 76%), transparent 28%),
+        transparent;
+}
+
+.calc-grid button {
+    border-radius: 14px;
+}
+
+.viewer-art {
+    border-radius: 20px;
+}
+
+.store-app,
+.games-app {
+    background:
+        radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--accent), transparent 70%), transparent 28%);
+}
+
+.store-hero {
+    margin-bottom: 18px;
+}
+
+.store-grid article,
+.games-app article {
+    min-height: 180px;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.store-grid article h2,
+.games-app article h1 {
+    margin: 0;
+}
+
+.utility-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: min(360px, 100%);
+}
+
+.utility-grid span {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.mines-grid,
+.snake-grid {
+    padding: 18px;
+    gap: 5px;
+}
+
+.mines-grid button,
+.snake-grid span {
+    border-radius: 7px;
+}
+
+@media (max-width: 900px) {
+    .power-grid,
+    .setup-split,
+    .boot-layout,
+    .progress-card,
+    .start-lower {
+        grid-template-columns: 1fr;
+    }
+
+    .desktop-widget {
+        display: none;
+    }
+
+    .desktop-icons {
+        grid-auto-flow: row;
+        grid-template-rows: none;
+        grid-template-columns: repeat(3, 94px);
+    }
+
+    .start-menu {
+        width: calc(100% - 48px);
+    }
+
+    .task-search,
+    .task-running {
+        display: none;
+    }
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sawline - 5ivesaw Games</title>
+    <meta
+      name="description"
+      content="Play Sawline, a compact grid survival game from the 5ivesaw Games hub."
+    >
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23030303'/%3E%3Cpath d='M12 12h32v9H23l-2 9h19l10 22H13v-9h23l-2-6H12z' fill='%23f5f1e8'/%3E%3C/svg%3E"
+    >
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="game-page sawline-page">
+    <header class="top-nav sawline-nav">
+      <a class="brand-mark" href="./index.html" aria-label="5ivesaw Games home">
+        <span class="brand-sigil">5G</span>
+        <span class="brand-name">5ivesaw</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="./index.html">Home</a>
+        <a href="./index.html#library">Library</a>
+      </nav>
+
+      <a class="button button-small button-light" href="./index.html#library" title="Backspace to return">Select</a>
+    </header>
+
+    <main class="game-page-shell sawline-shell">
+      <section class="game-shell sawline-game" id="play" aria-label="Sawline playable area">
+        <div class="sawline-gameplate" aria-hidden="true">
+          <span>Sawline</span>
+          <i>grid bite</i>
+        </div>
+
+        <div class="game-main">
+          <div class="canvas-frame">
+            <canvas
+              id="gameCanvas"
+              width="900"
+              height="900"
+              tabindex="0"
+              aria-label="Sawline game canvas"
+            ></canvas>
+          </div>
+
+          <div class="control-bar" aria-label="Game controls">
+            <button class="primary-button" type="button" id="startButton">Start run</button>
+            <button type="button" id="pauseButton">Pause</button>
+            <button type="button" id="phaseButton">Phase</button>
+            <button type="button" id="resetButton">Reset</button>
+          </div>
+        </div>
+
+        <aside class="game-side sawline-side" aria-label="Sawline status">
+          <section class="rank-card">
+            <span class="label">style rank</span>
+            <strong id="rankValue">D</strong>
+            <p id="statusText">Ready. Start the first run.</p>
+          </section>
+
+          <section class="stat-grid">
+            <article>
+              <span>score</span>
+              <strong id="scoreValue">0</strong>
+            </article>
+            <article>
+              <span>best</span>
+              <strong id="bestValue">0</strong>
+            </article>
+            <article>
+              <span>combo</span>
+              <strong id="comboValue">x1</strong>
+            </article>
+            <article>
+              <span>phase</span>
+              <strong id="phaseValue">ready</strong>
+            </article>
+          </section>
+
+          <section class="mechanics-card">
+            <h2>Mechanics</h2>
+            <ul>
+              <li>Space phases through walls, hazards, or your tail.</li>
+              <li>Rift gates teleport you and briefly stabilize the snake.</li>
+              <li>Fast charge chains raise combo and style rank.</li>
+              <li>Red saw cells spawn as the run gets hotter.</li>
+            </ul>
+          </section>
+
+          <section class="keys-card">
+            <h2>Keys</h2>
+            <p>WASD / arrows move. Space phases. P pauses. R restarts. F fullscreen.</p>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

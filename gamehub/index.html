@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>5ivesaw Games Hub</title>
+    <meta name="description" content="5ivesaw game hub.">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23030303'/%3E%3Cpath d='M12 12h32v9H23l-2 9h19l10 22H13v-9h23l-2-6H12z' fill='%23f5f1e8'/%3E%3C/svg%3E"
+    >
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="home-page">
+    <header class="top-nav" id="top">
+      <a class="brand-mark" href="./index.html" aria-label="5ivesaw Games home">
+        <span class="brand-sigil">5G</span>
+        <span class="brand-name">hub</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary navigation" role="tablist">
+        <button class="active" type="button" role="tab" aria-selected="true" data-tab-target="home">Home</button>
+        <button type="button" role="tab" aria-selected="false" data-tab-target="library">Library</button>
+      </nav>
+
+    </header>
+
+    <main>
+      <section class="hub-home tab-panel active" id="home" aria-labelledby="hub-title">
+        <img class="hub-art" src="./5ivesaw/assets/pfp1.png" alt="">
+
+        <div class="hub-lockup">
+          <p class="hub-kicker">games hub</p>
+          <h1 id="hub-title" class="saw-wordmark" aria-label="5ivesaw">
+            <span class="glyph g-five">5</span>
+            <span class="glyph g-i">i</span>
+            <span class="glyph g-v">v</span>
+            <span class="glyph g-e">e</span>
+            <span class="glyph g-s">s</span>
+            <span class="glyph g-a">a</span>
+            <span class="glyph g-w">w</span>
+          </h1>
+          <div class="hub-actions">
+            <button class="button button-primary" type="button" data-tab-target="library">Open Library</button>
+            <span class="hub-count">5 games</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="hub-library tab-panel" id="library" aria-labelledby="library-title" tabindex="-1">
+        <img class="library-art" src="./5ivesaw/assets/pfp2.png" alt="">
+
+        <div class="library-stage">
+          <div class="hub-library-head">
+            <div>
+              <p class="hub-kicker">library</p>
+              <h2 id="library-title">Game Select</h2>
+            </div>
+            <span class="library-status">05 installed</span>
+          </div>
+
+          <div class="game-library">
+          <a class="game-launch-card" href="./neon-fang.html" aria-label="Play Sawline">
+            <span class="game-number">01</span>
+            <span class="game-thumb thumb-fang" aria-hidden="true">
+              <span class="thumb-grid"></span>
+              <span class="fang-snake">
+                <i></i><i></i><i></i><i></i><i></i>
+              </span>
+              <span class="fang-food"></span>
+              <span class="fang-gate gate-a"></span>
+              <span class="fang-gate gate-b"></span>
+              <span class="fang-saw"></span>
+            </span>
+            <span class="card-kicker">grid bite</span>
+            <span class="game-card-copy">
+              <strong>Sawline</strong>
+              <span>cut / phase / chain</span>
+            </span>
+            <span class="launch-line">
+              <span>arrows / phase</span>
+              <b>Load</b>
+            </span>
+          </a>
+
+          <a class="game-launch-card" href="./snare.html" aria-label="Play Snare">
+            <span class="game-number">02</span>
+            <span class="game-thumb thumb-snare" aria-hidden="true">
+              <span class="snare-loop"></span>
+              <span class="snare-player"></span>
+              <span class="snare-mark mark-one"></span>
+              <span class="snare-mark mark-two"></span>
+              <span class="snare-mark mark-three"></span>
+            </span>
+            <span class="card-kicker">trap arena</span>
+            <span class="game-card-copy">
+              <strong>Snare</strong>
+              <span>trace / trap / survive</span>
+            </span>
+            <span class="launch-line">
+              <span>mouse / keys</span>
+              <b>Load</b>
+            </span>
+          </a>
+
+          <a class="game-launch-card" href="./void_echo.html" aria-label="Play Void Echo">
+            <span class="game-number">03</span>
+            <span class="game-thumb thumb-echo" aria-hidden="true">
+              <span class="echo-maze"></span>
+              <span class="echo-pulse pulse-one"></span>
+              <span class="echo-pulse pulse-two"></span>
+              <span class="echo-player"></span>
+              <span class="echo-exit"></span>
+              <span class="echo-hunter hunter-one"></span>
+              <span class="echo-hunter hunter-two"></span>
+            </span>
+            <span class="card-kicker">sonar</span>
+            <span class="game-card-copy">
+              <strong>Void Echo</strong>
+              <span>pulse / escape / hunters</span>
+            </span>
+            <span class="launch-line">
+              <span>WASD / space</span>
+              <b>Load</b>
+            </span>
+          </a>
+
+          <a class="game-launch-card" href="./wake_weaver_game.html" aria-label="Play Wake Weaver">
+            <span class="game-number">04</span>
+            <span class="game-thumb thumb-wake" aria-hidden="true">
+              <span class="wake-ribbon ribbon-one"></span>
+              <span class="wake-ribbon ribbon-two"></span>
+              <span class="wake-ribbon ribbon-three"></span>
+              <span class="wake-player"></span>
+              <span class="wake-shot"></span>
+              <span class="wake-enemy enemy-one"></span>
+              <span class="wake-enemy enemy-two"></span>
+            </span>
+            <span class="card-kicker">survival</span>
+            <span class="game-card-copy">
+              <strong>Wake Weaver</strong>
+              <span>wake / waves / boss</span>
+            </span>
+            <span class="launch-line">
+              <span>mouse / WASD</span>
+              <b>Load</b>
+            </span>
+          </a>
+
+          <a class="game-launch-card" href="./inkstain.html" aria-label="Play Inkstain">
+            <span class="game-number">05</span>
+            <span class="game-thumb thumb-ink" aria-hidden="true">
+              <span class="ink-paper"></span>
+              <span class="ink-slash slash-one"></span>
+              <span class="ink-slash slash-two"></span>
+              <span class="ink-orb"></span>
+              <span class="ink-spark spark-one"></span>
+              <span class="ink-spark spark-two"></span>
+            </span>
+            <span class="card-kicker">parry</span>
+            <span class="game-card-copy">
+              <strong>Inkstain</strong>
+              <span>fire / parry / slash</span>
+            </span>
+            <span class="launch-line">
+              <span>mouse / space</span>
+              <b>Load</b>
+            </span>
+          </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const tabButtons = document.querySelectorAll("[data-tab-target]");
+      const tabPanels = document.querySelectorAll(".tab-panel");
+
+      function setActiveTab(tabName) {
+        tabPanels.forEach(panel => {
+          panel.classList.toggle("active", panel.id === tabName);
+        });
+
+        tabButtons.forEach(button => {
+          const isActive = button.dataset.tabTarget === tabName;
+          button.classList.toggle("active", isActive);
+          if (button.getAttribute("role") === "tab") {
+            button.setAttribute("aria-selected", String(isActive));
+          }
+        });
+
+        document.body.dataset.activeTab = tabName;
+      }
+
+      tabButtons.forEach(button => {
+        button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget));
+      });
+
+      if (window.location.hash === "#library") {
+        setActiveTab("library");
+      }
+    </script>
+  </body>
+</html>

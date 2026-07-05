@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A playable 3D bedroom with an interactive piano, gaming setup, and in-room PC game hub.">
+    <meta name="theme-color" content="#101827">
+    <meta property="og:title" content="My Room">
+    <meta property="og:description" content="Explore a detailed browser bedroom, sit at the gaming setup, boot the PC, and play the bundled game hub.">
+    <meta property="og:type" content="website">
+    <title>My Room</title>
+    <link rel="icon" href="assets/my-room-icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="pc-os.css?v=42">
+    <!-- Import map for Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <!-- UI Layer -->
+        <div id="ui-layer">
+            <!-- Start Screen -->
+            <div id="start-screen" class="active">
+                <h1>My Room</h1>
+                <button id="enter-btn">Wake up</button>
+            </div>
+            
+            <!-- In-game HUD -->
+            <div id="hud">
+                <div id="crosshair"></div>
+                <div id="interaction-prompt"></div>
+                <div id="message-overlay"></div>
+            </div>
+
+            <!-- Wake up animation overlay -->
+            <div id="fade-overlay"></div>
+            
+            <!-- Pause overlay (only when pointer lock is lost) -->
+            <div id="pause-overlay" class="hidden">
+                <p>Click to resume</p>
+            </div>
+        </div>
+        
+        
+        <script type="module" src="main.js?v=42"></script>
+    </div>
+</body>
+</html>
