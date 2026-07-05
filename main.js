@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=43';
+import { createWorld } from './world.js?v=44';
 import { Player } from './player.js?v=43';
 import { InteractionSystem } from './interactions.js?v=43';
 import { sounds } from './sounds.js?v=43';
@@ -18,9 +18,20 @@ const DEFAULT_SETTINGS = {
     reducedMotion: false
 };
 
+function sanitizeSettings(raw = {}) {
+    const next = { ...DEFAULT_SETTINGS, ...raw };
+    if (!QUALITY_PROFILES[next.quality]) next.quality = DEFAULT_SETTINGS.quality;
+    if (![12, 18, 28].includes(Number(next.drawDistance))) next.drawDistance = DEFAULT_SETTINGS.drawDistance;
+    else next.drawDistance = Number(next.drawDistance);
+    if (!['still', 'slow', 'normal'].includes(next.pcPreview)) next.pcPreview = DEFAULT_SETTINGS.pcPreview;
+    next.fov = Math.max(60, Math.min(82, Number(next.fov) || DEFAULT_SETTINGS.fov));
+    next.reducedMotion = next.reducedMotion === true;
+    return next;
+}
+
 function loadSettings() {
     try {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+        return sanitizeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
     } catch {
         return { ...DEFAULT_SETTINGS };
     }
@@ -100,6 +111,7 @@ function applySettings() {
     syncSettingsUi();
     if (worldData && worldData.setPerformanceOptions) {
         worldData.setPerformanceOptions({
+            quality: settings.quality,
             pcPreview: settings.pcPreview
         });
     }
@@ -219,6 +231,11 @@ window.addEventListener('bedroom-pc-hidden', () => {
     pcReturnPending = false;
     updateVisibilityCulling(true);
     if (hasStarted) player.lock();
+});
+
+window.addEventListener('blur', clearMovementInput);
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearMovementInput();
 });
 
 // ============ SITTING SYSTEM ============

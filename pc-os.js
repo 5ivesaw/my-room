@@ -498,7 +498,11 @@ class PCSystem {
     render() {
         if (!this.root) return;
         this.root.style.setProperty('--accent', this.state.os.accent);
-        this.root.className = `pc-os-root w12-${this.state.os.theme}`;
+
+        const phase = this.state.machine.phase;
+        const desktopFullscreen = phase === 'desktop' && this.windows.some((win) => !win.min && win.max);
+        this.root.className = `pc-os-root w12-${this.state.os.theme}${desktopFullscreen ? ' desktop-fullscreen-app' : ''}`;
+        this.overlay?.classList.toggle('pc-app-fullscreen', desktopFullscreen);
 
         if (!this.state.machine.monitor || !this.state.machine.video) {
             this.root.innerHTML = this.renderNoSignal();
@@ -506,7 +510,6 @@ class PCSystem {
             return;
         }
 
-        const phase = this.state.machine.phase;
         if (!this.state.machine.powered || phase === 'off') {
             this.root.innerHTML = this.renderPowerOff();
         } else if (phase === 'boot') {
@@ -868,8 +871,9 @@ class PCSystem {
     renderDesktop() {
         const openWindows = this.windows.filter((win) => !win.min);
         const notifications = this.visibleNotifications();
+        const fullscreenApp = openWindows.some((win) => win.max);
         return `
-            <div class="w12-desktop wallpaper-${this.state.os.wallpaper}" data-action="desktop-area">
+            <div class="w12-desktop wallpaper-${this.state.os.wallpaper} ${fullscreenApp ? 'desktop-fullscreen-app' : ''}" data-action="desktop-area">
                 <div class="desktop-noise"></div>
                 <div class="desktop-light desktop-light-a"></div>
                 <div class="desktop-light desktop-light-b"></div>
@@ -1789,18 +1793,10 @@ class PCSystem {
         if (!this.visible) return;
         const editable = event.target.closest && event.target.closest('input, textarea, select');
         if (!editable && event.key === 'Escape') {
-            const active = this.windows
-                .filter((win) => !win.min)
-                .sort((a, b) => b.z - a.z)[0];
             if (this.startOpen || this.quickOpen || this.contextMenu) {
                 this.startOpen = false;
                 this.quickOpen = false;
                 this.contextMenu = null;
-                this.render();
-            } else if (active?.max) {
-                active.max = false;
-                this.rememberWindow(active);
-                this.playSound('click');
                 this.render();
             } else {
                 this.close();

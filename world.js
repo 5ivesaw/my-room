@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { createPCSystem } from './pc-os.js?v=43';
+import { createPCSystem } from './pc-os.js?v=44';
 
 export function createWorld(scene, showMessage, audioCtx, sfx) {
     const interactables = [];
     const updatables = [];
     const cullables = [];
+    const performanceOptions = { quality: 'performance', pcPreview: 'still' };
 
     function trackCullable(object, radius = 1.5) {
         cullables.push({ object, radius });
@@ -449,16 +450,16 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     updatables.push({
         update: (dt) => {
-            if (isRaining) {
-                const pos = rainGeo.attributes.position.array;
-                for(let i=0; i<rainCount; i++) {
-                    pos[i*3+1] -= 12 * dt; // fall down fast
-                    if (pos[i*3+1] < 0) {
-                        pos[i*3+1] = 8;
-                    }
+            if (!isRaining || !windowGroup.visible) return;
+            const pos = rainGeo.attributes.position.array;
+            const step = performanceOptions.quality === 'performance' ? 2 : 1;
+            for(let i=0; i<rainCount; i += step) {
+                pos[i*3+1] -= 12 * dt; // fall down fast
+                if (pos[i*3+1] < 0) {
+                    pos[i*3+1] = 8;
                 }
-                rainGeo.attributes.position.needsUpdate = true;
             }
+            rainGeo.attributes.position.needsUpdate = true;
         }
     });
 
@@ -927,9 +928,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     updatables.push({
         update: (dt) => {
+            if (!fanGroup.visible && fanSpeed === 0) return;
             const targetRPM = fanSpeeds[fanSpeed];
             fanCurrentRPM += (targetRPM - fanCurrentRPM) * 2 * dt;
-            bladeGroup.rotation.y += fanCurrentRPM * dt;
+            if (fanGroup.visible || fanCurrentRPM > 0.05) bladeGroup.rotation.y += fanCurrentRPM * dt;
         }
     });
 
@@ -1071,6 +1073,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     updatables.push({
         update: (dt) => {
+            if (!catGroup.visible && catState !== 'tracking') return;
             catTimer += dt;
             catStateTime += dt;
 
@@ -1944,6 +1947,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     
     updatables.push({
         update: (dt) => {
+            if (!fridgeGroup.visible && !fridgeOpen && Math.abs(fridgeDoorPivot.rotation.y) < 0.002 && interiorLight.intensity < 0.01) return;
             fridgeDoorPivot.rotation.y += (fridgeTargetAngle - fridgeDoorPivot.rotation.y) * 8 * dt;
             interiorLight.intensity += ((fridgeOpen ? 1.3 : 0) - interiorLight.intensity) * 8 * dt;
             refreshFridgeItems(dt);
@@ -2166,7 +2170,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         },
         closePCSession: () => pcSystem.close(true),
         setPerformanceOptions: (options = {}) => {
-            pcSystem.setPreviewMode(options.pcPreview || 'still');
+            if (options.quality) performanceOptions.quality = options.quality;
+            if (options.pcPreview) performanceOptions.pcPreview = options.pcPreview;
+            pcSystem.setPreviewMode(performanceOptions.pcPreview);
         },
         fanGroup,
         bladeGroup,
