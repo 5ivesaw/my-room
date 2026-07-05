@@ -372,12 +372,13 @@ class PCSystem {
         this.render();
         this.renderPreview();
         this.overlay.classList.add('pc-closing');
+        window.dispatchEvent(new CustomEvent('bedroom-pc-close'));
         if (this.closeTimer) clearTimeout(this.closeTimer);
         this.closeTimer = setTimeout(() => {
             document.body.classList.remove('pc-open');
             this.overlay.classList.add('pc-hidden');
             this.overlay.classList.remove('pc-closing');
-            window.dispatchEvent(new CustomEvent('bedroom-pc-close'));
+            window.dispatchEvent(new CustomEvent('bedroom-pc-hidden'));
             this.closeTimer = null;
         }, 180);
     }
@@ -398,9 +399,11 @@ class PCSystem {
         this.quickOpen = false;
         this.contextMenu = null;
         this.selection = null;
+        this.searchQuery = '';
         this.drag = null;
         this.resize = null;
         this.snakeClock = 0;
+        this.previewClock = this.previewInterval();
         this.previewDirty = true;
     }
 
@@ -1081,7 +1084,7 @@ class PCSystem {
 
     renderWindow(win) {
         const style = win.max
-            ? 'left:0;top:0;width:100%;height:calc(100% - 64px);'
+            ? 'left:0;top:0;width:100%;height:100%;'
             : `left:${win.x}px;top:${win.y}px;width:${win.w}px;height:${win.h}px;`;
         return `
             <section class="w12-window ${win.max ? 'max' : ''}" style="${style}z-index:${win.z}" data-window-shell="${win.id}">
@@ -1786,10 +1789,18 @@ class PCSystem {
         if (!this.visible) return;
         const editable = event.target.closest && event.target.closest('input, textarea, select');
         if (!editable && event.key === 'Escape') {
+            const active = this.windows
+                .filter((win) => !win.min)
+                .sort((a, b) => b.z - a.z)[0];
             if (this.startOpen || this.quickOpen || this.contextMenu) {
                 this.startOpen = false;
                 this.quickOpen = false;
                 this.contextMenu = null;
+                this.render();
+            } else if (active?.max) {
+                active.max = false;
+                this.rememberWindow(active);
+                this.playSound('click');
                 this.render();
             } else {
                 this.close();
