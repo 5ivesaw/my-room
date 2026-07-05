@@ -518,7 +518,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     // On the gaming desk beside the PC tower, not beside the bed.
     // Fridge top is around y=1.40, so the radio sits above it without clipping.
     radioGroup.position.set(3.68, 1.56, -0.48);
-    radioGroup.rotation.y = -Math.PI * 0.5;
+    radioGroup.rotation.y = 0;
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
     const radioGlowMat = new THREE.MeshBasicMaterial({ color: 0x36d6ff });
@@ -1534,6 +1534,50 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         pianoKeyMeshes.push(bk);
     }
 
+    const pianoRestY = pianoGroup.position.y;
+    const pianoMouthGroup = new THREE.Group();
+    pianoMouthGroup.visible = false;
+    pianoMouthGroup.position.set(0, 1.06, 0.58);
+    const mouthMat = new THREE.MeshBasicMaterial({ color: 0x030006 });
+    const toothMat = new THREE.MeshStandardMaterial({ color: 0xfff7e0, roughness: 0.28 });
+    const gumMat = new THREE.MeshStandardMaterial({ color: 0x6b0018, roughness: 0.55 });
+    const mouthBack = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.04, 0.08), mouthMat);
+    mouthBack.position.set(0, 0, 0);
+    pianoMouthGroup.add(mouthBack);
+    const upperGum = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.035, 0.06), gumMat);
+    upperGum.position.set(0, 0.12, -0.01);
+    pianoMouthGroup.add(upperGum);
+    const lowerGum = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.035, 0.06), gumMat);
+    lowerGum.position.set(0, -0.12, -0.01);
+    pianoMouthGroup.add(lowerGum);
+    for (let i = 0; i < 15; i++) {
+        const x = -1.02 + i * 0.146;
+        const topTooth = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.17, 3), toothMat);
+        topTooth.position.set(x, 0.065, 0.025);
+        topTooth.rotation.z = Math.PI;
+        topTooth.rotation.y = Math.PI / 6;
+        pianoMouthGroup.add(topTooth);
+        const bottomTooth = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.17, 3), toothMat);
+        bottomTooth.position.set(x + 0.07, -0.065, 0.025);
+        bottomTooth.rotation.y = Math.PI / 6;
+        pianoMouthGroup.add(bottomTooth);
+    }
+    pianoMouthGroup.scale.y = 0.01;
+    pianoGroup.add(pianoMouthGroup);
+    let pianoScareTime = 0;
+    let pianoScareActive = false;
+    let pianoScareNoteTimer = 0;
+    const scareNotes = pianoKeyDefs.map((key) => key.freq);
+
+    function triggerPianoScare() {
+        if (pianoScareActive) return;
+        pianoScareActive = true;
+        pianoScareTime = 0;
+        pianoScareNoteTimer = 0;
+        pianoMouthGroup.visible = true;
+        showMessage('The piano got angry.');
+    }
+
     // Music Book
     const bookCanvas = document.createElement('canvas');
     bookCanvas.width = 1024; bookCanvas.height = 512;
@@ -1977,6 +2021,33 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
     interactables.push({ mesh: pianoBody, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
     interactables.push({ mesh: benchTop, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
+
+    updatables.push({
+        update: (dt) => {
+            if (!pianoScareActive) return;
+            pianoScareTime += dt;
+            pianoScareNoteTimer -= dt;
+            const open = Math.min(1, pianoScareTime / 0.32) * Math.max(0, Math.min(1, (3.35 - pianoScareTime) / 0.55));
+            pianoMouthGroup.visible = open > 0.02;
+            pianoMouthGroup.scale.y = 0.01 + open * (2.1 + Math.sin(pianoScareTime * 24) * 0.18);
+            pianoGroup.position.y = pianoRestY + open * (0.22 + Math.sin(pianoScareTime * 30) * 0.04);
+            pianoGroup.rotation.z = Math.sin(pianoScareTime * 38) * 0.035 * open;
+            if (pianoScareNoteTimer <= 0 && audioCtx) {
+                pianoScareNoteTimer = 0.055 + Math.random() * 0.06;
+                const freq = scareNotes[Math.floor(Math.random() * scareNotes.length)] * (Math.random() < 0.18 ? 0.5 : 1);
+                playPianoKey(freq, 0.28 + Math.random() * 0.28, 0.18 + Math.random() * 0.25);
+            }
+            if (pianoScareTime >= 3.5) {
+                pianoScareActive = false;
+                pianoScareTime = 0;
+                pianoMouthGroup.visible = false;
+                pianoMouthGroup.scale.y = 0.01;
+                pianoGroup.position.y = pianoRestY;
+                pianoGroup.rotation.z = 0;
+                showMessage('The piano calms down.');
+            }
+        }
+    });
     
     const bookControlMat = new THREE.MeshBasicMaterial({ visible: false });
     const bookControlDefs = [
@@ -2443,6 +2514,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         },
         setPlayerRef: (ref) => { playerRef = ref; },
         playPianoKey,
+        triggerPianoScare,
         pianoKeyMap,
         pianoGroup,
         fridgeGroup,

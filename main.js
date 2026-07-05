@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=50';
+import { createWorld } from './world.js?v=51';
 import { Player } from './player.js?v=49';
 import { InteractionSystem } from './interactions.js?v=49';
 import { sounds } from './sounds.js?v=49';
@@ -165,6 +165,17 @@ const spamLimits = {
     rgb: { count: 7, ms: 4200 },
     window: { count: 6, ms: 5200 }
 };
+const pianoSitSpam = [];
+
+function reportPianoSitSpam() {
+    const now = performance.now();
+    pianoSitSpam.push(now);
+    while (pianoSitSpam.length && now - pianoSitSpam[0] > 6800) pianoSitSpam.shift();
+    if (pianoSitSpam.length < 6 || chaosActive) return;
+    pianoSitSpam.length = 0;
+    worldData?.triggerPianoScare?.();
+    showMessage('The piano is done with the sit-spam.');
+}
 
 function ensureChaosOverlay() {
     let overlay = document.getElementById('chaos-overlay');
@@ -589,6 +600,7 @@ document.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space') {
         if (isSitting && sitAnimPhase === 'seated') {
+            if (isSittingPiano) reportPianoSitSpam();
             if (sfx) sfx.play('sit');
             sitAnimPhase = 'standingUp';
             sitAnimTime = 0;
@@ -665,6 +677,7 @@ function handleSpecialAction(interactable) {
         });
         return true;
     } else if (interactable.action === 'sitPiano') {
+        reportPianoSitSpam();
         startSit(interactable.pianoWorldPos, interactable.pianoLookAt, 1.48, -0.03);
         isSittingPiano = true;
         window.isSittingPiano = true;
