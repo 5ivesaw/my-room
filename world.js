@@ -1,9 +1,15 @@
 import * as THREE from 'three';
-import { createPCSystem } from './pc-os.js?v=42';
+import { createPCSystem } from './pc-os.js?v=43';
 
 export function createWorld(scene, showMessage, audioCtx, sfx) {
     const interactables = [];
     const updatables = [];
+    const cullables = [];
+
+    function trackCullable(object, radius = 1.5) {
+        cullables.push({ object, radius });
+        return object;
+    }
 
     function makeCanvasTexture(width, height, draw, repeatX = 1, repeatY = 1) {
         const canvas = document.createElement('canvas');
@@ -415,6 +421,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     streetGlow.position.set(0, -0.5, 0.5);
     windowGroup.add(streetGlow);
     scene.add(windowGroup);
+    trackCullable(windowGroup, 1.9);
 
     // Rain Particles
     const rainCount = 800;
@@ -502,6 +509,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     scene.add(bedGroup);
+    trackCullable(bedGroup, 2.6);
 
     // ============ DESK ============
     const deskGroup = new THREE.Group();
@@ -589,6 +597,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     deskGroup.add(pcGroup);
 
     const pcSystem = createPCSystem({ showMessage });
+    pcSystem.setPreviewMode('still');
     const pcScreenTex = new THREE.CanvasTexture(pcSystem.previewCanvas);
     pcScreenTex.colorSpace = THREE.SRGBColorSpace;
     pcScreenTex.minFilter = THREE.LinearFilter;
@@ -686,7 +695,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     interactables.push({ mesh: screenFront, action: accessPc, label: "Access PC", canInteract: () => window.isSittingGamingChair === true });
     updatables.push({
         update: (dt) => {
-            if (!pcRgbOn) return;
+            if (!pcRgbOn || !deskGroup.visible) return;
             for (const fan of pcFans) fan.rotation.z += dt * 5.5;
         }
     });
@@ -820,6 +829,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     deskGroup.add(lampGroup);
     scene.add(deskGroup);
+    trackCullable(deskGroup, 2.7);
 
     // ============ DOOR ============
     const doorGroup = new THREE.Group();
@@ -849,6 +859,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     doorGroup.add(knob);
 
     scene.add(doorGroup);
+    trackCullable(doorGroup, 1.5);
 
     let doorShaking = false;
     function rattleDoor() {
@@ -904,6 +915,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     fanGroup.add(bladeGroup);
 
     scene.add(fanGroup);
+    trackCullable(fanGroup, 1.7);
 
     interactables.push({
         mesh: fanHub,
@@ -998,6 +1010,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
     updateCatFace('- w -');
     scene.add(catGroup);
+    trackCullable(catGroup, 1.0);
 
     const catCamPos = new THREE.Vector3(-2.0, 1.35, 1.65);
     const catLookAt = new THREE.Vector3(-3.05, 1.05, 2.9);
@@ -1677,6 +1690,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     pianoGroup.add(benchGroup);
 
     scene.add(pianoGroup);
+    trackCullable(pianoGroup, 2.5);
 
     // Realistic Piano Audio Engine using PeriodicWave for Harmonics
     let pianoWave = null;
@@ -1894,6 +1908,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     fridgeGroup.add(fridgeDoorPivot);
     scene.add(fridgeGroup);
+    trackCullable(fridgeGroup, 1.6);
 
     let fridgeOpen = false;
     let fridgeTargetAngle = 0;
@@ -2144,6 +2159,15 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     return {
         interactables,
         updatables,
+        cullables,
+        updatePC: (dt) => {
+            pcSystem.update(dt);
+            if (pcSystem.consumePreviewDirty()) pcScreenTex.needsUpdate = true;
+        },
+        closePCSession: () => pcSystem.close(true),
+        setPerformanceOptions: (options = {}) => {
+            pcSystem.setPreviewMode(options.pcPreview || 'still');
+        },
         fanGroup,
         bladeGroup,
         fanSpeed: () => fanSpeed,
@@ -2181,7 +2205,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             isBookAutoPlaying,
             pianoKeyCount: pianoKeyDefs.length,
             pianoKeyLabels: pianoKeyDefs.map((key) => key.label).join(' '),
-            roomDetailVersion: 10,
+            roomDetailVersion: 11,
             pcRgbOn,
             pc: pcSystem.getDebugState(),
             posterScroll,

@@ -11,7 +11,7 @@
     <title>My Room</title>
     <link rel="icon" href="assets/my-room-icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css?v=5">
-    <link rel="stylesheet" href="pc-os.css?v=42">
+    <link rel="stylesheet" href="pc-os.css?v=43">
     <!-- Import map for Three.js -->
     <script type="importmap">
     {
@@ -28,8 +28,72 @@
         <div id="ui-layer">
             <!-- Start Screen -->
             <div id="start-screen" class="active">
-                <h1>My Room</h1>
-                <button id="enter-btn">Wake up</button>
+                <div class="start-panorama" aria-hidden="true">
+                    <div class="panorama-strip">
+                        <span class="pano-wall"></span>
+                        <span class="pano-window"></span>
+                        <span class="pano-bed"></span>
+                        <span class="pano-pc"></span>
+                        <span class="pano-piano"></span>
+                        <span class="pano-fridge"></span>
+                        <span class="pano-floor"></span>
+                    </div>
+                </div>
+
+                <main class="start-panel" aria-labelledby="start-title">
+                    <p class="start-kicker">interactive bedroom</p>
+                    <h1 id="start-title">My Room</h1>
+                    <p class="start-copy">Explore the room, play the piano, sit at the gaming setup, boot the PC, and open the bundled Game Hub.</p>
+
+                    <div class="start-actions">
+                        <button id="enter-btn" type="button">Enter Room</button>
+                        <span>Press <kbd>E</kbd> in-game to interact</span>
+                    </div>
+
+                    <section class="start-settings" aria-label="Performance settings">
+                        <div class="settings-head">
+                            <strong>Performance</strong>
+                            <span>Saved on this browser</span>
+                        </div>
+
+                        <label>
+                            <span>Graphics</span>
+                            <select id="graphics-quality">
+                                <option value="performance">Performance</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="quality">Quality</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>Draw distance</span>
+                            <select id="draw-distance">
+                                <option value="12">Short</option>
+                                <option value="18">Room</option>
+                                <option value="28">Wide</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>PC screen preview</span>
+                            <select id="pc-preview">
+                                <option value="still">Still image</option>
+                                <option value="slow">Low refresh</option>
+                                <option value="normal">Normal</option>
+                            </select>
+                        </label>
+
+                        <label class="range-setting">
+                            <span>Field of view <b id="fov-value">72</b></span>
+                            <input id="fov-range" type="range" min="60" max="82" step="1">
+                        </label>
+
+                        <label class="check-setting">
+                            <input id="reduced-motion" type="checkbox">
+                            <span>Reduce menu motion</span>
+                        </label>
+                    </section>
+                </main>
             </div>
             
             <!-- In-game HUD -->
@@ -49,7 +113,7 @@
         </div>
         
         
-        <script type="module" src="main.js?v=42"></script>
+        <script type="module" src="main.js?v=43"></script>
     </div>
 </body>
 </html>

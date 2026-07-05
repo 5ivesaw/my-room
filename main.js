@@ -1,14 +1,48 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=42';
-import { Player } from './player.js?v=42';
-import { InteractionSystem } from './interactions.js?v=42';
-import { sounds } from './sounds.js?v=42';
+import { createWorld } from './world.js?v=43';
+import { Player } from './player.js?v=43';
+import { InteractionSystem } from './interactions.js?v=43';
+import { sounds } from './sounds.js?v=43';
+
+const SETTINGS_KEY = 'my-room.settings.v1';
+const QUALITY_PROFILES = {
+    performance: { pixelRatio: 0.72 },
+    balanced: { pixelRatio: 1.0 },
+    quality: { pixelRatio: 1.25 }
+};
+const DEFAULT_SETTINGS = {
+    quality: 'performance',
+    drawDistance: 18,
+    pcPreview: 'still',
+    fov: 72,
+    reducedMotion: false
+};
+
+function loadSettings() {
+    try {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    } catch {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+
+function saveSettings() {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+        // Settings are optional; private browsing should not break the room.
+    }
+}
+
+const settings = loadSettings();
 
 // Setup Renderer
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 function applyRenderScale() {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+    const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, profile.pixelRatio));
 }
 applyRenderScale();
 renderer.shadowMap.enabled = false;
@@ -19,15 +53,71 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.FogExp2(0x000000, 0.05);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.1, settings.drawDistance);
+const cullFrustum = new THREE.Frustum();
+const cullMatrix = new THREE.Matrix4();
+const cullSphere = new THREE.Sphere();
+const cullCenter = new THREE.Vector3();
+const cameraWorldPos = new THREE.Vector3();
+let cullTimer = 0;
+
+function applyCameraSettings() {
+    camera.fov = settings.fov;
+    camera.far = settings.drawDistance;
+    camera.updateProjectionMatrix();
+    scene.fog.density = settings.drawDistance <= 12 ? 0.08 : settings.drawDistance <= 18 ? 0.06 : 0.045;
+}
+
+applyCameraSettings();
 
 // UI Elements
 const startScreen = document.getElementById('start-screen');
 const enterBtn = document.getElementById('enter-btn');
+const qualitySelect = document.getElementById('graphics-quality');
+const drawDistanceSelect = document.getElementById('draw-distance');
+const pcPreviewSelect = document.getElementById('pc-preview');
+const fovRange = document.getElementById('fov-range');
+const fovValue = document.getElementById('fov-value');
+const reducedMotionInput = document.getElementById('reduced-motion');
 const hud = document.getElementById('hud');
 const fadeOverlay = document.getElementById('fade-overlay');
 const messageOverlay = document.getElementById('message-overlay');
 const pauseOverlay = document.getElementById('pause-overlay');
+
+function syncSettingsUi() {
+    if (qualitySelect) qualitySelect.value = settings.quality;
+    if (drawDistanceSelect) drawDistanceSelect.value = String(settings.drawDistance);
+    if (pcPreviewSelect) pcPreviewSelect.value = settings.pcPreview;
+    if (fovRange) fovRange.value = String(settings.fov);
+    if (fovValue) fovValue.textContent = String(settings.fov);
+    if (reducedMotionInput) reducedMotionInput.checked = settings.reducedMotion;
+    document.body.classList.toggle('menu-reduced-motion', settings.reducedMotion);
+}
+
+function applySettings() {
+    applyRenderScale();
+    applyCameraSettings();
+    syncSettingsUi();
+    if (worldData && worldData.setPerformanceOptions) {
+        worldData.setPerformanceOptions({
+            pcPreview: settings.pcPreview
+        });
+    }
+}
+
+function updateSetting(key, value) {
+    settings[key] = value;
+    saveSettings();
+    applySettings();
+}
+
+syncSettingsUi();
+
+qualitySelect?.addEventListener('change', () => updateSetting('quality', qualitySelect.value));
+drawDistanceSelect?.addEventListener('change', () => updateSetting('drawDistance', Number(drawDistanceSelect.value)));
+pcPreviewSelect?.addEventListener('change', () => updateSetting('pcPreview', pcPreviewSelect.value));
+fovRange?.addEventListener('input', () => updateSetting('fov', Number(fovRange.value)));
+reducedMotionInput?.addEventListener('change', () => updateSetting('reducedMotion', reducedMotionInput.checked));
 
 let messageTimeout = null;
 function showMessage(text) {
@@ -74,7 +164,7 @@ let hasStarted = false;
 // Handle Window Resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+    applyCameraSettings();
     renderer.setSize(window.innerWidth, window.innerHeight);
     applyRenderScale();
 });
@@ -102,14 +192,23 @@ pauseOverlay.addEventListener('click', () => {
     player.lock();
 });
 
-window.addEventListener('bedroom-pc-close', () => {
-    pauseOverlay.classList.add('hidden');
+function clearMovementInput() {
     player.moveForward = false;
     player.moveBackward = false;
     player.moveLeft = false;
     player.moveRight = false;
     chairPushLeft = false;
     chairPushRight = false;
+}
+
+window.addEventListener('bedroom-pc-open', () => {
+    pauseOverlay.classList.add('hidden');
+    clearMovementInput();
+});
+
+window.addEventListener('bedroom-pc-close', () => {
+    pauseOverlay.classList.add('hidden');
+    clearMovementInput();
     if (hasStarted) player.lock();
 });
 
@@ -359,7 +458,9 @@ enterBtn.addEventListener('click', async () => {
     }
 
     worldData = createWorld(scene, showMessage, audioCtx, sfx);
+    applySettings();
     interactions = new InteractionSystem(camera, worldData.interactables, promptEl, handleSpecialAction);
+    updateVisibilityCulling(true);
 
     fadeOverlay.classList.add('blackout');
     startScreen.classList.add('hidden');
@@ -580,7 +681,37 @@ function renderGameToText() {
 
 window.render_game_to_text = renderGameToText;
 
+function updateVisibilityCulling(force = false) {
+    if (!worldData || !worldData.cullables || !worldData.cullables.length) return;
+    if (!force && cullTimer < 0.08) return;
+    cullTimer = 0;
+
+    camera.updateMatrixWorld();
+    cullMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    cullFrustum.setFromProjectionMatrix(cullMatrix);
+    camera.getWorldPosition(cameraWorldPos);
+
+    for (const item of worldData.cullables) {
+        if (!item || !item.object) continue;
+        const radius = item.radius || 1;
+        item.object.getWorldPosition(cullCenter);
+        const maxDistance = settings.drawDistance + radius;
+        const nearEnough = cameraWorldPos.distanceToSquared(cullCenter) <= maxDistance * maxDistance;
+        cullSphere.center.copy(cullCenter);
+        cullSphere.radius = radius;
+        item.object.visible = nearEnough && cullFrustum.intersectsSphere(cullSphere);
+    }
+}
+
 function stepGame(dt) {
+    if (!hasStarted) return;
+    cullTimer += dt;
+
+    if (document.body.classList.contains('pc-open')) {
+        if (worldData && worldData.updatePC) worldData.updatePC(dt);
+        return;
+    }
+
     if (isWakingUp) {
         player.pitchObject.rotation.x += (0 - player.pitchObject.rotation.x) * 2 * dt;
         player.yawObject.position.x += (-0.4 - player.yawObject.position.x) * 2 * dt;
@@ -610,6 +741,8 @@ function stepGame(dt) {
         player.update(dt);
     }
 
+    updateVisibilityCulling();
+
     if ((player.isLocked || isSitting || isHanging) && interactions) {
         interactions.update();
     }
@@ -632,7 +765,7 @@ window.advanceTime = (ms) => {
 
 function animate() {
     requestAnimationFrame(animate);
-    stepGame(Math.min(clock.getDelta(), 0.1));
+    stepGame(Math.min(clock.getDelta(), 0.05));
 }
 
 animate();

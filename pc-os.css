@@ -5,15 +5,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.78);
-    backdrop-filter: blur(10px);
+    background: #020308;
     pointer-events: auto;
     font-family: Inter, Segoe UI, system-ui, sans-serif;
     color: #f5f8ff;
+    opacity: 1;
+    transition: opacity 0.18s ease;
 }
 
 #pc-os-overlay.pc-hidden {
     display: none;
+}
+
+#pc-os-overlay.pc-closing {
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.pc-open #hud,
@@ -22,12 +28,12 @@ body.pc-open #pause-overlay {
 }
 
 .pc-shell {
-    width: min(96vw, 1280px);
-    height: min(92vh, 760px);
-    min-height: 560px;
+    width: 100vw;
+    height: 100vh;
+    min-height: 0;
     background: #05070b;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 30px 120px rgba(0, 0, 0, 0.8), 0 0 70px rgba(76, 201, 255, 0.25);
+    border: 0;
+    box-shadow: none;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1305,18 +1311,16 @@ body.pc-open #pause-overlay {
     background:
         radial-gradient(circle at 18% 12%, rgba(76, 201, 255, 0.18), transparent 34%),
         radial-gradient(circle at 82% 86%, rgba(255, 79, 216, 0.14), transparent 32%),
-        rgba(0, 0, 0, 0.82);
+        #020308;
 }
 
 .pc-shell {
-    width: min(97vw, 1360px);
-    height: min(93vh, 820px);
-    border-radius: 14px;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
     background: linear-gradient(180deg, rgba(13, 18, 29, 0.98), rgba(3, 5, 10, 0.99));
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    border: 0;
     box-shadow:
-        0 40px 140px rgba(0, 0, 0, 0.88),
-        0 0 0 1px rgba(76, 201, 255, 0.14),
         inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 

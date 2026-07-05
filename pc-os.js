@@ -218,10 +218,12 @@ class PCSystem {
         this.audioCtx = null;
         this.lastSoundAt = 0;
         this.previewCanvas = document.createElement('canvas');
-        this.previewCanvas.width = 1024;
-        this.previewCanvas.height = 576;
+        this.previewCanvas.width = 640;
+        this.previewCanvas.height = 360;
         this.previewDirty = true;
         this.previewClock = 0;
+        this.previewMode = 'still';
+        this.closeTimer = null;
         this.snakeClock = 0;
         this.createOverlay();
         this.renderPreview();
@@ -343,27 +345,53 @@ class PCSystem {
 
     open() {
         if (document.pointerLockElement) document.exitPointerLock();
+        if (this.closeTimer) {
+            clearTimeout(this.closeTimer);
+            this.closeTimer = null;
+        }
         this.playSound('open');
         this.visible = true;
         document.body.classList.add('pc-open');
-        this.overlay.classList.remove('pc-hidden');
+        this.overlay.classList.remove('pc-hidden', 'pc-closing');
+        window.dispatchEvent(new CustomEvent('bedroom-pc-open'));
         this.root.focus({ preventScroll: true });
         this.render();
         this.showMessage('PC monitor opened.');
     }
 
-    close() {
+    close(endSession = true) {
+        if (!this.overlay) return;
+        if (!this.visible && this.overlay.classList.contains('pc-hidden')) {
+            if (endSession) this.endSession();
+            return;
+        }
         this.playSound('close');
         this.visible = false;
-        document.body.classList.remove('pc-open');
-        this.overlay.classList.add('pc-hidden');
+        if (endSession) this.endSession();
+        this.render();
+        this.renderPreview();
+        this.overlay.classList.add('pc-closing');
+        if (this.closeTimer) clearTimeout(this.closeTimer);
+        this.closeTimer = setTimeout(() => {
+            document.body.classList.remove('pc-open');
+            this.overlay.classList.add('pc-hidden');
+            this.overlay.classList.remove('pc-closing');
+            window.dispatchEvent(new CustomEvent('bedroom-pc-close'));
+            this.closeTimer = null;
+        }, 180);
+    }
+
+    endSession() {
+        for (const win of this.windows) this.rememberWindow(win);
+        this.windows = [];
         this.startOpen = false;
         this.quickOpen = false;
         this.contextMenu = null;
         this.selection = null;
         this.drag = null;
         this.resize = null;
-        window.dispatchEvent(new CustomEvent('bedroom-pc-close'));
+        this.snakeClock = 0;
+        this.previewDirty = true;
     }
 
     getDebugState() {
@@ -390,6 +418,17 @@ class PCSystem {
         const dirty = this.previewDirty;
         this.previewDirty = false;
         return dirty;
+    }
+
+    setPreviewMode(mode = 'still') {
+        this.previewMode = ['still', 'slow', 'normal'].includes(mode) ? mode : 'still';
+        this.previewDirty = true;
+    }
+
+    previewInterval() {
+        if (this.previewMode === 'normal') return 0.16;
+        if (this.previewMode === 'slow') return 0.55;
+        return 2.0;
     }
 
     isScreenLit() {
@@ -421,11 +460,14 @@ class PCSystem {
         this.snakeClock += dt;
         if (this.snakeClock > 0.18) {
             this.snakeClock = 0;
-            if (this.tickSnakeWindows()) this.render();
+            if (this.tickSnakeWindows()) {
+                if (this.visible) this.render();
+                this.previewDirty = true;
+            }
         }
 
         this.previewClock += dt;
-        if (this.previewClock > 0.16 || this.previewDirty) {
+        if (!this.visible && (this.previewClock > this.previewInterval() || this.previewDirty)) {
             this.previewClock = 0;
             this.renderPreview();
         }
