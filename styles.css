@@ -1020,3 +1020,246 @@ body.pc-open > #game-container > canvas {
         padding: 7px 10px;
     }
 }
+
+/* v49: longer arcade cutscenes */
+.chaos-fall-scene,
+.chaos-wall-scene,
+.chaos-speedlines,
+.chaos-street {
+    display: none;
+}
+
+.window-fall .chaos-card,
+.fan-smash .chaos-card {
+    top: 14%;
+    transform: translateX(-50%) rotate(-1deg) scale(0.82);
+    min-width: min(430px, calc(100vw - 42px));
+    padding: 16px 20px;
+    z-index: 4;
+}
+
+.window-fall .chaos-card {
+    animation: cutsceneCardFall 5.4s ease-in-out forwards;
+}
+
+.fan-smash .chaos-card {
+    animation: cutsceneCardSmash 3.3s ease-in-out forwards;
+}
+
+.window-fall .chaos-fall-scene {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 4%, rgba(119, 198, 255, 0.32), transparent 21%),
+        linear-gradient(180deg, #08111f 0%, #172745 42%, #100e18 82%, #08070d 100%);
+    perspective: 520px;
+    overflow: hidden;
+}
+
+.window-fall .chaos-fall-scene::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -18vh;
+    width: 34vw;
+    height: 155vh;
+    transform: translateX(-50%) rotateX(68deg);
+    background:
+        linear-gradient(90deg, transparent 0 45%, rgba(255,255,255,0.18) 45% 46%, transparent 46% 54%, rgba(255,255,255,0.18) 54% 55%, transparent 55%),
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 56px),
+        linear-gradient(180deg, #111621, #05060a);
+    filter: blur(0.2px);
+    animation: roadRush 5.2s cubic-bezier(.18,.72,.2,1) forwards;
+}
+
+.chaos-skyline {
+    position: absolute;
+    inset: -120vh -10vw -80vh;
+    transform-origin: center;
+}
+
+.window-fall .chaos-skyline {
+    display: block;
+    animation: buildingFall 5.2s cubic-bezier(.12,.72,.14,1) forwards;
+}
+
+.window-fall .chaos-skyline-b {
+    transform: scaleX(-1) translateY(-90vh);
+    opacity: 0.68;
+    animation-duration: 4.8s;
+}
+
+.chaos-skyline span {
+    position: absolute;
+    bottom: -50vh;
+    width: 10vw;
+    min-width: 82px;
+    height: calc(64vh + (var(--i) * 5vh));
+    left: calc((var(--i) * 8vw) - 8vw);
+    background:
+        linear-gradient(90deg, rgba(255, 237, 174, 0.34) 1px, transparent 1px),
+        linear-gradient(rgba(255, 237, 174, 0.22) 1px, transparent 1px),
+        linear-gradient(180deg, #1b2540, #0c1020);
+    background-size: 20px 24px;
+    border-top: 4px solid rgba(176, 208, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 32px rgba(0,0,0,0.24);
+}
+
+.window-fall .chaos-speedlines,
+.fan-smash .chaos-speedlines {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        repeating-linear-gradient(100deg, transparent 0 22px, rgba(255,255,255,0.16) 23px 25px, transparent 26px 46px);
+    opacity: 0.35;
+    mix-blend-mode: screen;
+}
+
+.window-fall .chaos-speedlines {
+    animation: speedlineFall 0.2s linear infinite;
+}
+
+.window-fall .chaos-street {
+    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: -34vh;
+    width: 140vw;
+    height: 45vh;
+    transform: translateX(-50%) scale(0.15);
+    border-radius: 50% 50% 0 0;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255, 43, 84, 0.70), transparent 0 5%, rgba(255, 240, 107, 0.50) 5% 8%, transparent 8% 100%),
+        repeating-linear-gradient(90deg, #111 0 80px, #151515 80px 160px);
+    opacity: 0;
+    animation: streetImpact 5.2s cubic-bezier(.08,.9,.1,1) forwards;
+}
+
+.fan-smash::before {
+    background:
+        radial-gradient(circle at 78% 52%, rgba(255, 43, 84, 0.42), transparent 18%),
+        radial-gradient(circle at 48% 52%, rgba(255, 240, 107, 0.18), transparent 16%),
+        linear-gradient(90deg, rgba(5, 8, 16, 0.18), rgba(5, 8, 16, 0.82));
+}
+
+.fan-smash .chaos-wall-scene {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background:
+        linear-gradient(90deg, #0b1018 0 42%, #2b2028 42% 100%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.055) 0 2px, transparent 2px 62px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.055) 0 2px, transparent 2px 62px);
+}
+
+.fan-smash .chaos-wall-scene::before {
+    content: "";
+    position: absolute;
+    left: -18vw;
+    top: 50%;
+    width: 20vw;
+    height: 20vw;
+    min-width: 160px;
+    min-height: 160px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, #f9f2dc 0 18%, #ff2b54 19% 21%, transparent 22%),
+        conic-gradient(from 0deg, transparent 0 10%, rgba(255,255,255,0.42) 10% 12%, transparent 12% 26%, rgba(255,43,84,0.36) 26% 29%, transparent 29% 100%);
+    filter: drop-shadow(0 0 22px rgba(255,43,84,0.72));
+    animation: fanLaunchBody 3.2s cubic-bezier(.12,.8,.14,1) forwards;
+}
+
+.fan-smash .chaos-wall-scene span {
+    position: absolute;
+    right: 9vw;
+    top: 50%;
+    width: 9vw;
+    height: 9vw;
+    min-width: 78px;
+    min-height: 78px;
+    transform: translateY(-50%) scale(0);
+    border-radius: 50%;
+    border: 4px solid rgba(255, 43, 84, 0.86);
+    background: radial-gradient(circle, rgba(255, 43, 84, 0.52), transparent 62%);
+    animation: wallCrackPop 3.2s ease-out forwards;
+}
+
+.fan-smash .chaos-wall-scene span:nth-child(2) { width: 14vw; height: 14vw; animation-delay: 0.08s; opacity: 0.72; }
+.fan-smash .chaos-wall-scene span:nth-child(3) { width: 19vw; height: 19vw; animation-delay: 0.13s; opacity: 0.44; }
+.fan-smash .chaos-wall-scene span:nth-child(4) { right: 6vw; width: 26vw; height: 26vw; animation-delay: 0.19s; opacity: 0.22; }
+.fan-smash .chaos-wall-scene span:nth-child(5) { right: 14vw; width: 4vw; height: 4vw; animation-delay: 0.28s; opacity: 0.95; }
+
+.fan-smash .chaos-speedlines {
+    animation: fanSpeedline 0.13s linear infinite;
+    opacity: 0.5;
+}
+
+.fan-smash .chaos-bits i:nth-child(2n),
+.window-fall .chaos-bits i:nth-child(2n) { background: #ff2b54; }
+.fan-smash .chaos-bits i:nth-child(2n + 1),
+.window-fall .chaos-bits i:nth-child(2n + 1) { background: #f9f2dc; }
+.fan-smash .chaos-bits i,
+.window-fall .chaos-bits i {
+    animation-duration: 1.85s;
+    animation-delay: calc(var(--d) + 2.1s);
+}
+.window-fall .chaos-bits i { animation-delay: calc(var(--d) + 4.05s); }
+
+@keyframes buildingFall {
+    0% { transform: translateY(-120vh) scale(1.24); filter: blur(1px); }
+    40% { transform: translateY(-38vh) scale(1.42); filter: blur(1.5px); }
+    78% { transform: translateY(25vh) scale(1.7); filter: blur(2.4px); }
+    100% { transform: translateY(105vh) scale(2.35); filter: blur(5px); }
+}
+
+@keyframes roadRush {
+    0% { transform: translateX(-50%) rotateX(68deg) translateY(-120vh) scale(0.7); opacity: 0.15; }
+    55% { opacity: 0.65; }
+    100% { transform: translateX(-50%) rotateX(68deg) translateY(54vh) scale(2.1); opacity: 0.95; }
+}
+
+@keyframes speedlineFall {
+    from { background-position: 0 0; }
+    to { background-position: 0 110px; }
+}
+
+@keyframes streetImpact {
+    0%, 72% { opacity: 0; transform: translateX(-50%) scale(0.12); }
+    86% { opacity: 1; transform: translateX(-50%) scale(0.78); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1.3); }
+}
+
+@keyframes cutsceneCardFall {
+    0%, 60% { opacity: 1; transform: translateX(-50%) rotate(-1deg) scale(0.82); }
+    72% { opacity: 0; transform: translateX(-50%) translateY(-40px) rotate(2deg) scale(0.7); }
+    100% { opacity: 0; }
+}
+
+@keyframes fanLaunchBody {
+    0% { transform: translate(-10vw, -50%) rotate(0) scale(0.55); opacity: 0; }
+    15% { opacity: 1; }
+    68% { transform: translate(80vw, -50%) rotate(840deg) scale(1.0); opacity: 1; }
+    76% { transform: translate(88vw, -50%) rotate(980deg) scale(1.18); opacity: 1; }
+    100% { transform: translate(90vw, -50%) rotate(980deg) scale(0); opacity: 0; }
+}
+
+@keyframes wallCrackPop {
+    0%, 62% { transform: translateY(-50%) scale(0); opacity: 0; }
+    76% { transform: translateY(-50%) scale(1); opacity: 1; }
+    100% { transform: translateY(-50%) scale(1.7); opacity: 0; }
+}
+
+@keyframes fanSpeedline {
+    from { background-position: 0 0; }
+    to { background-position: 90px 0; }
+}
+
+@keyframes cutsceneCardSmash {
+    0%, 52% { opacity: 1; transform: translateX(-50%) rotate(-1deg) scale(0.82); }
+    70%, 100% { opacity: 0; transform: translateX(-50%) translateY(-30px) rotate(2deg) scale(0.72); }
+}

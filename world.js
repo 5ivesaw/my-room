@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createPCSystem } from './pc-os.js?v=46';
+import { createPCSystem } from './pc-os.js?v=49';
 
 export function createWorld(scene, showMessage, audioCtx, sfx) {
     const interactables = [];

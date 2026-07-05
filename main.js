@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=48';
-import { Player } from './player.js?v=46';
-import { InteractionSystem } from './interactions.js?v=46';
-import { sounds } from './sounds.js?v=46';
+import { createWorld } from './world.js?v=49';
+import { Player } from './player.js?v=49';
+import { InteractionSystem } from './interactions.js?v=49';
+import { sounds } from './sounds.js?v=49';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
@@ -180,15 +180,25 @@ function ensureChaosOverlay() {
 function showChaosOverlay(kind, title, subtitle = '', duration = 1600) {
     const overlay = ensureChaosOverlay();
     overlay.className = `chaos-overlay ${kind}`;
-    const bits = Array.from({ length: kind === 'window-fall' ? 52 : 34 }, (_, i) => {
+    const isFall = kind === 'window-fall';
+    const isFan = kind === 'fan-smash';
+    const bitCount = isFall ? 92 : isFan ? 76 : 34;
+    const bits = Array.from({ length: bitCount }, () => {
         const x = Math.round(Math.random() * 100);
         const y = Math.round(Math.random() * 100);
-        const d = (Math.random() * 0.55).toFixed(2);
-        const s = (0.65 + Math.random() * 1.4).toFixed(2);
+        const d = (Math.random() * 0.75).toFixed(2);
+        const s = (0.65 + Math.random() * 1.65).toFixed(2);
         return `<i style="--x:${x}vw;--y:${y}vh;--d:${d}s;--s:${s}"></i>`;
     }).join('');
+    const city = Array.from({ length: 14 }, (_, i) => `<span style="--i:${i}"></span>`).join('');
     overlay.innerHTML = `
-        <div class="chaos-city" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="chaos-fall-scene" aria-hidden="true">
+            <div class="chaos-skyline chaos-skyline-a">${city}</div>
+            <div class="chaos-skyline chaos-skyline-b">${city}</div>
+            <div class="chaos-street"></div>
+        </div>
+        <div class="chaos-wall-scene" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="chaos-speedlines" aria-hidden="true"></div>
         <div class="chaos-card">
             <strong>${title}</strong>
             ${subtitle ? `<em>${subtitle}</em>` : ''}
@@ -249,9 +259,23 @@ function triggerWindowYeet() {
     chaosActive = true;
     unlockFromSpecialStates();
     player.allowLook = false;
-    showChaosOverlay('window-fall', 'WINDOW YEET', 'falling past the city... pixel splat incoming', 2700);
-    if (sfx) sfx.play('drop', false, 0.8);
-    window.setTimeout(() => wakeFromBed('That window said no. You wake up in bed.'), 2450);
+    clearMovementInput();
+    showChaosOverlay('window-fall', 'WINDOW YEET', 'full falling cutscene engaged... brace for pixel impact', 5600);
+    if (sfx) sfx.play('drop', false, 0.85);
+    window.setTimeout(() => { if (sfx) sfx.play('error', false, 0.75); }, 4650);
+    window.setTimeout(() => wakeFromBed('You got pavement-reset and wake back up in bed.'), 5350);
+}
+
+function triggerFanSmash() {
+    if (chaosActive) return;
+    chaosActive = true;
+    unlockFromSpecialStates();
+    player.allowLook = false;
+    clearMovementInput();
+    showChaosOverlay('fan-smash', 'FAN LAUNCH', 'max speed ceiling fan → wall bonk → pixel respawn', 3600);
+    if (sfx) sfx.play('drop', false, 0.9);
+    window.setTimeout(() => { if (sfx) sfx.play('error', false, 0.7); }, 2350);
+    window.setTimeout(() => wakeFromBed('The fan invented fast travel. You wake back up in bed.'), 3350);
 }
 
 function triggerRgbOverload() {
@@ -486,6 +510,7 @@ function updateSitAnimation(dt) {
 let isHanging = false;
 let hangAnimPhase = '';
 let hangAnimTime = 0;
+let hangMaxSpeedTime = 0;
 let preHangPos = new THREE.Vector3();
 
 function startHang(fanGroup, bladeGroup) {
@@ -494,8 +519,9 @@ function startHang(fanGroup, bladeGroup) {
     isHanging = true;
     hangAnimPhase = 'grabbing';
     hangAnimTime = 0;
+    hangMaxSpeedTime = 0;
     preHangPos.copy(player.yawObject.position);
-    showMessage("WHEEE! Press E to let go.");
+    showMessage("WHEEE! Press E to let go. Max-speed fan is cursed.");
     // Cat starts curiously tracking the player
     if (worldData && worldData.setCatTracking) {
         worldData.setCatTracking(true, player.yawObject.position);
@@ -524,6 +550,17 @@ function updateHangAnimation(dt, worldData) {
         player.yawObject.position.y = 3.0;
         // Spin the camera too for fun
         player.yawObject.rotation.y = -fanAngle;
+
+        const speedLevel = typeof worldData.fanSpeed === 'function' ? worldData.fanSpeed() : 0;
+        if (speedLevel >= 3) {
+            hangMaxSpeedTime += dt;
+            if (hangMaxSpeedTime > 1.15) {
+                triggerFanSmash();
+                return;
+            }
+        } else {
+            hangMaxSpeedTime = 0;
+        }
     } else if (hangAnimPhase === 'lettingGo') {
         const t = Math.min(hangAnimTime / 0.5, 1);
         const ease = t * t * (3 - 2 * t);
@@ -533,6 +570,7 @@ function updateHangAnimation(dt, worldData) {
             player.yawObject.position.y = 1.5;
             isHanging = false;
             hangAnimPhase = '';
+            hangMaxSpeedTime = 0;
             // Cat stops tracking
             if (worldData && worldData.setCatTracking) {
                 worldData.setCatTracking(false);
