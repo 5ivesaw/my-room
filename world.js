@@ -740,6 +740,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     pcRgbLight.position.set(-0.1, 0, 0.5);
     pcGroup.add(pcRgbLight);
     let pcRgbOn = true;
+    let pcBurstRecovering = false;
     function setPcRgb(on) {
         pcRgbOn = on;
         pcRgbLight.intensity = pcRgbOn ? 0.65 : 0;
@@ -853,6 +854,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
                 rot: new THREE.Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9)
             });
         }
+        pcBurstRecovering = true;
         setPcRgb(false);
         showMessage('PC RGB overload! It pops apart, then snaps back together.');
     }
@@ -874,7 +876,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
                     pcBurstPieces.splice(i, 1);
                 }
             }
-            if (!pcBurstPieces.length && !pcRgbOn) setPcRgb(true);
+            if (!pcBurstPieces.length && pcBurstRecovering) {
+                pcBurstRecovering = false;
+                setPcRgb(true);
+            }
         }
     });
 
