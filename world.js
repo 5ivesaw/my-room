@@ -515,8 +515,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ PROCEDURAL RADIO ============
     const radioGroup = new THREE.Group();
-    radioGroup.position.set(-1.72, 0.86, 2.62);
-    radioGroup.rotation.y = -0.35;
+    // On the gaming desk beside the PC tower, not beside the bed.
+    // Desk surface top is around y=0.95, radio body half-height is 0.16.
+    radioGroup.position.set(1.45, 1.11, -1.50);
+    radioGroup.rotation.y = -0.08;
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
     const radioGlowMat = new THREE.MeshBasicMaterial({ color: 0x36d6ff });
