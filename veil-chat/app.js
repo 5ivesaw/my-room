@@ -23,6 +23,17 @@ const LS_AVATAR = 'veil.avatar.v1';
 const LS_SOUND = 'veil.sound.v1';
 const LS_BROWSER_NOTICES = 'veil.browserNotices.v1';
 const AVATAR_COLORS = ['#101626', '#7c5cff', '#25d0ff', '#50f2a0', '#ffcb6b', '#ff4d6d', '#ffffff', '#ff8bd2'];
+const MAX_ATTACHMENT_BYTES = 260 * 1024;
+const MAX_ENCRYPTED_TEXT = 1600;
+const EMOJI_SET = ['😀','😂','😭','🔥','💀','❤️','👍','🙏','👀','😳','😎','🤝','✨','🎉','💯','😈','😴','🤯','😤','🥶','🙄','😐','😔','🫡','🍕','☕','🎮','📍','⚠️','✅','❌','🔒'];
+const GIF_PRESETS = [
+  { id: 'party', label: 'Party', emoji: '🎉', caption: 'party time' },
+  { id: 'skull', label: 'Dead', emoji: '💀', caption: 'I am dead' },
+  { id: 'fire', label: 'Fire', emoji: '🔥', caption: 'that was fire' },
+  { id: 'sus', label: 'Sus', emoji: '👀', caption: 'caught in 4k' },
+  { id: 'bruh', label: 'Bruh', emoji: '😐', caption: 'bruh moment' },
+  { id: 'lock', label: 'Secure', emoji: '🔒', caption: 'encrypted transmission' }
+];
 
 let firebaseApp = null;
 let auth = null;
@@ -48,6 +59,8 @@ const state = {
   soundEnabled: localStorage.getItem(LS_SOUND) !== 'off',
   browserNotices: localStorage.getItem(LS_BROWSER_NOTICES) === 'on',
   avatarEditorOpen: false,
+  picker: null,
+  replyTo: null,
   members: [],
   messages: []
 };
@@ -142,13 +155,16 @@ async function deriveRoomKey(secret, saltBase64) {
   );
 }
 
-async function encryptText(text) {
+async function encryptPayload(payloadData = {}) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const payload = new TextEncoder().encode(JSON.stringify({
-    text,
+    text: String(payloadData.text || ''),
     name: state.displayName,
     avatar: state.avatar,
-    sentAt: Date.now()
+    sentAt: Date.now(),
+    reply: payloadData.reply || null,
+    attachment: payloadData.attachment || null,
+    gif: payloadData.gif || null
   }));
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, payload);
   return {
@@ -173,6 +189,152 @@ async function decryptMessage(docData) {
       locked: true
     };
   }
+}
+
+function safeFileName(name = 'file') {
+  return String(name || 'file').replace(/[\/:*?"<>|]/g, '_').slice(0, 80) || 'file';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file.'));
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.split(',')[1] || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Could not decode image.'));
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+}
+
+async function compressImageFile(file) {
+  if (file.type === 'image/gif' && file.size <= MAX_ATTACHMENT_BYTES) {
+    return {
+      kind: 'image',
+      name: safeFileName(file.name || 'image.gif'),
+      mime: file.type,
+      size: file.size,
+      data: await fileToBase64(file)
+    };
+  }
+
+  const img = await readImage(file);
+  const maxSide = 960;
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+  canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#07101b';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  let blob = null;
+  for (const quality of [0.78, 0.66, 0.54, 0.44]) {
+    blob = await canvasToBlob(canvas, quality);
+    if (blob && blob.size <= MAX_ATTACHMENT_BYTES) break;
+  }
+  if (!blob || blob.size > MAX_ATTACHMENT_BYTES) throw new Error('Image is too large even after compression. Try a smaller image.');
+  return {
+    kind: 'image',
+    name: safeFileName((file.name || 'image').replace(/\.[^.]+$/, '') + '.jpg'),
+    mime: 'image/jpeg',
+    size: blob.size,
+    data: await fileToBase64(blob)
+  };
+}
+
+async function fileToAttachment(file) {
+  if (!file) return null;
+  if (file.type.startsWith('image/')) return compressImageFile(file);
+  if (file.size > MAX_ATTACHMENT_BYTES) throw new Error(`File too large. Max ${Math.round(MAX_ATTACHMENT_BYTES / 1024)} KB because this free version stores encrypted attachments inside Firestore messages.`);
+  return {
+    kind: 'file',
+    name: safeFileName(file.name || 'attachment.bin'),
+    mime: file.type || 'application/octet-stream',
+    size: file.size,
+    data: await fileToBase64(file)
+  };
+}
+
+async function sendAttachment(file, caption = '') {
+  if (!file) return;
+  try {
+    toast('Encrypting attachment...');
+    const attachment = await fileToAttachment(file);
+    await sendMessage(caption, { attachment });
+  } catch (error) {
+    toast(`Attachment failed: ${error.message}`);
+  }
+}
+
+function youtubeIdFromUrl(url) {
+  const value = String(url || '');
+  const match = value.match(/(?:youtube\.com\/(?:watch\?[^\s#]*v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
+  return match ? match[1] : '';
+}
+
+function urlsFromText(text = '') {
+  return Array.from(String(text).matchAll(/https?:\/\/[^\s<]+/g)).map((match) => match[0]);
+}
+
+function renderEmbeds(text = '') {
+  const urls = urlsFromText(text).slice(0, 3);
+  const cards = [];
+  const seenYoutube = new Set();
+  for (const url of urls) {
+    const youtubeId = youtubeIdFromUrl(url);
+    if (youtubeId && !seenYoutube.has(youtubeId)) {
+      seenYoutube.add(youtubeId);
+      cards.push(`<figure class="embed-card youtube-card"><iframe loading="lazy" src="https://www.youtube-nocookie.com/embed/${youtubeId}" title="YouTube preview" allow="accelerometer; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe><figcaption>YouTube preview</figcaption></figure>`);
+      continue;
+    }
+    if (/\.(png|jpe?g|gif|webp)(\?[^\s]*)?$/i.test(url)) {
+      cards.push(`<figure class="embed-card image-link-card"><img loading="lazy" src="${escapeHtml(url)}" alt="Linked image preview"><figcaption>Image link</figcaption></figure>`);
+    }
+  }
+  return cards.join('');
+}
+
+function renderAttachment(attachment) {
+  if (!attachment || !attachment.data) return '';
+  const name = escapeHtml(attachment.name || 'attachment');
+  const mime = escapeHtml(attachment.mime || 'application/octet-stream');
+  const dataUrl = `data:${mime};base64,${attachment.data}`;
+  const size = attachment.size ? `${Math.max(1, Math.round(attachment.size / 1024))} KB` : '';
+  if (attachment.kind === 'image') {
+    return `<figure class="attachment-card image-attachment"><img src="${dataUrl}" alt="${name}" loading="lazy"><figcaption><span>${name}</span><a href="${dataUrl}" download="${name}">Save</a></figcaption></figure>`;
+  }
+  return `<a class="attachment-card file-attachment" href="${dataUrl}" download="${name}"><b>Attachment</b><span>${name}</span><em>${size}</em></a>`;
+}
+
+function renderGif(gif) {
+  if (!gif) return '';
+  const safeId = String(gif.id || 'party').replace(/[^a-z0-9-]/gi, '').toLowerCase();
+  return `<figure class="gif-message gif-${safeId}"><b>${escapeHtml(gif.emoji || '✨')}</b><figcaption>${escapeHtml(gif.caption || gif.label || 'GIF')}</figcaption></figure>`;
+}
+
+function renderReply(reply) {
+  if (!reply) return '';
+  return `<blockquote class="reply-card"><strong>${escapeHtml(reply.name || 'Friend')}</strong><span>${escapeHtml(String(reply.text || '').slice(0, 140))}</span></blockquote>`;
 }
 
 function hasFirebaseConfig() {
@@ -361,13 +523,18 @@ function subscribeRoom() {
   });
 }
 
-async function sendMessage(text) {
+async function sendMessage(text, extras = {}) {
   if (!room || !cryptoKey || sending) return;
   const clean = String(text || '').trim();
-  if (!clean) return;
+  if (!clean && !extras.attachment && !extras.gif) return;
   sending = true;
   try {
-    const encrypted = await encryptText(clean.slice(0, 1800));
+    const encrypted = await encryptPayload({
+      text: clean.slice(0, MAX_ENCRYPTED_TEXT),
+      reply: extras.reply || state.replyTo || null,
+      attachment: extras.attachment || null,
+      gif: extras.gif || null
+    });
     const expiresAt = Date.now() + Math.max(1, Number(room.ttlHours || selectedTtlHours || 24)) * 60 * 60 * 1000;
     await addDoc(messagesPath(room.id), {
       senderId: user.uid,
@@ -377,6 +544,8 @@ async function sendMessage(text) {
       createdAt: serverTimestamp(),
       expiresAt
     });
+    state.replyTo = null;
+    state.picker = null;
     playSendSound();
   } catch (error) {
     toast(`Send failed: ${error.message}`);
@@ -405,6 +574,8 @@ function leaveRoom() {
   state.messages = [];
   state.members = [];
   state.avatarEditorOpen = false;
+  state.picker = null;
+  state.replyTo = null;
   setStatus('ready');
 }
 
@@ -536,6 +707,8 @@ function render(detail = '') {
           <span>AES-GCM messages</span>
           <span>Profile pixels</span>
           <span>Mobile ready</span>
+          <span>Paste images/files</span>
+          <span>YouTube embeds</span>
         </div>
       </aside>
 
@@ -665,18 +838,36 @@ function renderChat() {
             <article class="bubble ${message.senderId === user.uid ? 'mine' : ''} ${message.locked ? 'locked' : ''}">
               <div class="bubble-meta">
                 <strong>${escapeHtml(nameForMessage(message))}</strong>
+                <button data-reply="${message.id}">Reply</button>
+                ${message.text ? `<button data-copy="${message.id}">Copy</button>` : ''}
                 ${message.senderId === user.uid ? `<button data-delete="${message.id}">Delete</button>` : ''}
               </div>
-              <p>${linkify(escapeHtml(message.text || ''))}</p>
+              ${renderReply(message.reply)}
+              ${message.text ? `<p>${linkify(escapeHtml(message.text || ''))}</p>` : ''}
+              ${renderEmbeds(message.text || '')}
+              ${renderAttachment(message.attachment)}
+              ${renderGif(message.gif)}
             </article>
             ${message.senderId === user.uid ? renderAvatar(avatarForMessage(message), 'mini') : ''}
           </article>
-        `).join('') : `<div class="empty-state">No messages yet. Send the first encrypted message.</div>`}
+        `).join('') : `<div class="empty-state">No messages yet. Paste an image, drop a file, send a GIF, or type the first encrypted message.</div>`}
       </section>
 
       <form id="composer" class="composer">
-        <textarea name="message" rows="1" maxlength="1800" placeholder="Type encrypted message..." autocomplete="off"></textarea>
-        <button type="submit">Send</button>
+        ${state.replyTo ? `<div class="composer-reply"><span>Replying to <b>${escapeHtml(state.replyTo.name || 'Friend')}</b>: ${escapeHtml(String(state.replyTo.text || '').slice(0, 80))}</span><button type="button" id="clearReply">×</button></div>` : ''}
+        <div class="composer-tools">
+          <button type="button" id="emojiButton">Emoji</button>
+          <button type="button" id="gifButton">GIF</button>
+          <button type="button" id="attachButton">Attach</button>
+          <span>Paste images/files or YouTube links</span>
+        </div>
+        ${state.picker === 'emoji' ? renderEmojiPicker() : ''}
+        ${state.picker === 'gif' ? renderGifPicker() : ''}
+        <div class="composer-row">
+          <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="Type encrypted message, paste image, or drop a file..." autocomplete="off"></textarea>
+          <button type="submit">Send</button>
+        </div>
+        <input id="fileInput" type="file" hidden>
       </form>
     </section>
   `;
@@ -700,8 +891,69 @@ function renderChat() {
     });
   });
 
+  document.querySelectorAll('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const msg = state.messages.find((item) => item.id === button.dataset.copy);
+      await navigator.clipboard?.writeText(msg?.text || '');
+      toast('Copied message.');
+      focusComposer();
+    });
+  });
+
+  document.querySelectorAll('[data-reply]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const msg = state.messages.find((item) => item.id === button.dataset.reply);
+      if (!msg) return;
+      state.replyTo = { id: msg.id, name: nameForMessage(msg), text: msg.text || (msg.gif?.caption || msg.attachment?.name || 'attachment') };
+      renderChat();
+    });
+  });
+
   const composer = document.getElementById('composer');
   const area = composer?.elements.message;
+  const fileInput = document.getElementById('fileInput');
+
+  document.getElementById('clearReply')?.addEventListener('click', () => {
+    state.replyTo = null;
+    renderChat();
+  });
+
+  document.getElementById('emojiButton')?.addEventListener('click', () => {
+    state.picker = state.picker === 'emoji' ? null : 'emoji';
+    renderChat();
+  });
+
+  document.getElementById('gifButton')?.addEventListener('click', () => {
+    state.picker = state.picker === 'gif' ? null : 'gif';
+    renderChat();
+  });
+
+  document.getElementById('attachButton')?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = '';
+    await sendAttachment(file, area?.value || '');
+    if (area) area.value = '';
+    renderChat();
+  });
+
+  document.querySelectorAll('[data-emoji]').forEach((button) => {
+    button.addEventListener('click', () => {
+      insertAtCursor(area, button.dataset.emoji || '');
+      autoGrow(area);
+      focusComposer();
+    });
+  });
+
+  document.querySelectorAll('[data-gif]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const gif = GIF_PRESETS.find((item) => item.id === button.dataset.gif);
+      if (!gif) return;
+      await sendMessage('', { gif });
+      renderChat();
+    });
+  });
+
   composer?.addEventListener('submit', async (event) => {
     event.preventDefault();
     unlockAudio();
@@ -710,6 +962,29 @@ function renderChat() {
     autoGrow(area);
     await sendMessage(value);
     area.focus({ preventScroll: true });
+  });
+
+  composer?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    composer.classList.add('drag-ready');
+  });
+  composer?.addEventListener('dragleave', () => composer.classList.remove('drag-ready'));
+  composer?.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    composer.classList.remove('drag-ready');
+    const file = event.dataTransfer?.files?.[0];
+    await sendAttachment(file, area?.value || '');
+    if (area) area.value = '';
+    renderChat();
+  });
+
+  area?.addEventListener('paste', async (event) => {
+    const file = Array.from(event.clipboardData?.files || [])[0];
+    if (!file) return;
+    event.preventDefault();
+    await sendAttachment(file, area.value || '');
+    area.value = '';
+    renderChat();
   });
 
   area?.addEventListener('input', () => autoGrow(area));
@@ -726,6 +1001,14 @@ function renderChat() {
 
   scrollChatBottom();
   if (lastRenderHadComposerFocus || window.innerWidth > 820) requestAnimationFrame(focusComposer);
+}
+
+function renderEmojiPicker() {
+  return `<section class="picker-panel emoji-panel">${EMOJI_SET.map((emoji) => `<button type="button" data-emoji="${escapeHtml(emoji)}">${escapeHtml(emoji)}</button>`).join('')}</section>`;
+}
+
+function renderGifPicker() {
+  return `<section class="picker-panel gif-panel">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</section>`;
 }
 
 function bindSharedControls() {
@@ -772,6 +1055,15 @@ function bindSharedControls() {
     render();
   });
   document.getElementById('browserNoticeToggle')?.addEventListener('click', requestBrowserNotices);
+}
+
+function insertAtCursor(area, text) {
+  if (!area) return;
+  const start = area.selectionStart ?? area.value.length;
+  const end = area.selectionEnd ?? area.value.length;
+  area.value = `${area.value.slice(0, start)}${text}${area.value.slice(end)}`;
+  const next = start + text.length;
+  area.setSelectionRange(next, next);
 }
 
 function autoGrow(area) {

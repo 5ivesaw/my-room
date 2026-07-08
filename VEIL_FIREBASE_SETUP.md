@@ -130,3 +130,15 @@ The database stores encrypted blobs. The room secret is what decrypts messages i
 - Prefer public meetup spots.
 - Delete sensitive messages after plans are done.
 - Change room secret if someone leaves the friend group.
+
+## v56 rich-message notes
+
+Veil Chat v56 adds emoji/GIF panels, YouTube embeds, reply/copy actions, and encrypted inline attachments. Because this project is designed to stay on Firebase Spark without Cloud Storage, attachments are intentionally small and are encrypted into the message document itself.
+
+Recommended use:
+
+- Text, emojis, GIF-style stickers, and YouTube links: normal use.
+- Pasted images/files: keep them small. The app compresses pasted images before encrypting them.
+- Videos and large media: not recommended for the free Firestore-only version.
+
+After replacing v56 files, publish the updated `firestore.rules` file in Firebase Console. The message ciphertext limit was raised to allow small encrypted attachments.

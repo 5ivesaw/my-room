@@ -72,7 +72,7 @@ service cloud.firestore {
           && request.resource.data.iv is string
           && request.resource.data.ciphertext is string
           && request.resource.data.iv.size() < 80
-          && request.resource.data.ciphertext.size() < 6000;
+          && request.resource.data.ciphertext.size() < 750000;
 
         allow delete: if isMember(roomId)
           && resource.data.senderId == request.auth.uid;
