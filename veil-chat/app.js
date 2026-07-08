@@ -19,6 +19,10 @@ const appRoot = document.getElementById('app');
 const CONFIG = window.VEIL_FIREBASE_CONFIG || null;
 const LS_NAME = 'veil.displayName.v1';
 const LS_LAST_ROOM = 'veil.lastRoom.v1';
+const LS_AVATAR = 'veil.avatar.v1';
+const LS_SOUND = 'veil.sound.v1';
+const LS_BROWSER_NOTICES = 'veil.browserNotices.v1';
+const AVATAR_COLORS = ['#101626', '#7c5cff', '#25d0ff', '#50f2a0', '#ffcb6b', '#ff4d6d', '#ffffff', '#ff8bd2'];
 
 let firebaseApp = null;
 let auth = null;
@@ -31,10 +35,19 @@ let unsubMessages = null;
 let unsubMembers = null;
 let sending = false;
 let selectedTtlHours = 24;
+let seenMessageIds = new Set();
+let firstMessageSnapshot = true;
+let audioContext = null;
+let selectedAvatarColor = 1;
+let lastRenderHadComposerFocus = false;
 
 const state = {
   status: 'setup',
   displayName: localStorage.getItem(LS_NAME) || `Friend-${Math.floor(100 + Math.random() * 900)}`,
+  avatar: normalizeAvatar(localStorage.getItem(LS_AVATAR) || randomAvatar()),
+  soundEnabled: localStorage.getItem(LS_SOUND) !== 'off',
+  browserNotices: localStorage.getItem(LS_BROWSER_NOTICES) === 'on',
+  avatarEditorOpen: false,
   members: [],
   messages: []
 };
@@ -57,6 +70,48 @@ function bytesToBase64(bytes) {
 function base64ToBytes(base64) {
   const binary = atob(base64);
   return Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+function normalizeAvatar(value) {
+  const clean = String(value || '').replace(/[^0-7]/g, '').slice(0, 64);
+  return clean.padEnd(64, '0');
+}
+
+function randomAvatar() {
+  const cells = Array.from({ length: 64 }, () => '0');
+  const palette = [1, 2, 3, 4, 5, 7];
+  const pick = palette[Math.floor(Math.random() * palette.length)];
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 4; x++) {
+      const value = Math.random() > 0.46 ? String(pick) : (Math.random() > 0.78 ? '6' : '0');
+      cells[y * 8 + x] = value;
+      cells[y * 8 + (7 - x)] = value;
+    }
+  }
+  return cells.join('');
+}
+
+function saveAvatar(value) {
+  state.avatar = normalizeAvatar(value);
+  localStorage.setItem(LS_AVATAR, state.avatar);
+  syncMemberProfile().catch(() => {});
+}
+
+function renderAvatar(code = state.avatar, className = '') {
+  const cells = normalizeAvatar(code).split('');
+  return `<span class="avatar-grid ${className}" aria-hidden="true">${cells.map((item, index) => `<i data-avatar-cell="${index}" style="--c:${AVATAR_COLORS[Number(item)] || AVATAR_COLORS[0]}"></i>`).join('')}</span>`;
+}
+
+function memberByUid(uid) {
+  return state.members.find((member) => member.uid === uid) || null;
+}
+
+function avatarForMessage(message) {
+  return memberByUid(message.senderId)?.avatar || message.avatar || state.avatar;
+}
+
+function nameForMessage(message) {
+  return memberByUid(message.senderId)?.displayName || message.name || 'Friend';
 }
 
 async function sha256Base64(text) {
@@ -92,6 +147,7 @@ async function encryptText(text) {
   const payload = new TextEncoder().encode(JSON.stringify({
     text,
     name: state.displayName,
+    avatar: state.avatar,
     sentAt: Date.now()
   }));
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, payload);
@@ -181,6 +237,16 @@ function newRoomId() {
   return `room-${left}-${right}`;
 }
 
+async function syncMemberProfile() {
+  if (!room || !user) return;
+  await setDoc(memberPath(room.id), {
+    uid: user.uid,
+    displayName: state.displayName,
+    avatar: state.avatar,
+    lastSeenAt: serverTimestamp()
+  }, { merge: true });
+}
+
 async function joinRoom(id, secret, label = '') {
   if (!user) return;
   const cleanId = cleanRoomId(id);
@@ -191,36 +257,43 @@ async function joinRoom(id, secret, label = '') {
   }
 
   setStatus('joining');
-  const snap = await getDoc(roomPath(cleanId));
-  if (!snap.exists()) {
+  try {
+    const snap = await getDoc(roomPath(cleanId));
+    if (!snap.exists()) {
+      setStatus('ready');
+      toast('Room not found. Create it first or check the invite.');
+      return;
+    }
+
+    const roomData = snap.data();
+    const inviteHash = await sha256Base64(`${cleanId}:${cleanSecret}`);
+    if (inviteHash !== roomData.inviteHash) {
+      setStatus('ready');
+      toast('Wrong room secret.');
+      return;
+    }
+
+    roomSecret = cleanSecret;
+    cryptoKey = await deriveRoomKey(roomSecret, roomData.salt);
+    room = { id: cleanId, ...roomData, label: label || roomData.label || cleanId };
+    localStorage.setItem(LS_LAST_ROOM, cleanId);
+
+    await setDoc(memberPath(cleanId), {
+      uid: user.uid,
+      displayName: state.displayName,
+      avatar: state.avatar,
+      inviteHash,
+      joinedAt: serverTimestamp(),
+      lastSeenAt: serverTimestamp()
+    }, { merge: true });
+
+    subscribeRoom();
+    setStatus('chat');
+    requestAnimationFrame(focusComposer);
+  } catch (error) {
     setStatus('ready');
-    toast('Room not found. Create it first or check the invite.');
-    return;
+    toast(`Join failed: ${error.message}`);
   }
-
-  const roomData = snap.data();
-  const inviteHash = await sha256Base64(`${cleanId}:${cleanSecret}`);
-  if (inviteHash !== roomData.inviteHash) {
-    setStatus('ready');
-    toast('Wrong room secret.');
-    return;
-  }
-
-  roomSecret = cleanSecret;
-  cryptoKey = await deriveRoomKey(roomSecret, roomData.salt);
-  room = { id: cleanId, ...roomData, label: label || cleanId };
-  localStorage.setItem(LS_LAST_ROOM, cleanId);
-
-  await setDoc(memberPath(cleanId), {
-    uid: user.uid,
-    displayName: state.displayName,
-    inviteHash,
-    joinedAt: serverTimestamp(),
-    lastSeenAt: serverTimestamp()
-  }, { merge: true });
-
-  subscribeRoom();
-  setStatus('chat');
 }
 
 async function createRoom(label, secret) {
@@ -233,41 +306,56 @@ async function createRoom(label, secret) {
   }
 
   setStatus('creating');
-  const salt = bytesToBase64(crypto.getRandomValues(new Uint8Array(16)));
-  const inviteHash = await sha256Base64(`${id}:${cleanSecret}`);
-  await setDoc(roomPath(id), {
-    createdBy: user.uid,
-    createdAt: serverTimestamp(),
-    label: String(label || 'Private Room').slice(0, 44),
-    salt,
-    inviteHash,
-    ttlHours: selectedTtlHours
-  });
+  try {
+    const salt = bytesToBase64(crypto.getRandomValues(new Uint8Array(16)));
+    const inviteHash = await sha256Base64(`${id}:${cleanSecret}`);
+    await setDoc(roomPath(id), {
+      createdBy: user.uid,
+      createdAt: serverTimestamp(),
+      label: String(label || 'Private Room').slice(0, 44),
+      salt,
+      inviteHash,
+      ttlHours: selectedTtlHours
+    });
 
-  await joinRoom(id, cleanSecret, label);
+    await joinRoom(id, cleanSecret, label);
+  } catch (error) {
+    setStatus('ready');
+    toast(`Create failed: ${error.message}`);
+  }
 }
 
 function subscribeRoom() {
   if (!room) return;
   if (unsubMessages) unsubMessages();
   if (unsubMembers) unsubMembers();
+  seenMessageIds = new Set();
+  firstMessageSnapshot = true;
 
   unsubMembers = onSnapshot(collection(db, 'rooms', room.id, 'members'), (snapshot) => {
     state.members = snapshot.docs.map((entry) => entry.data()).slice(0, 24);
     if (state.status === 'chat') render();
   });
 
-  const q = query(messagesPath(room.id), orderBy('createdAt', 'asc'), limit(80));
+  const q = query(messagesPath(room.id), orderBy('createdAt', 'asc'), limit(100));
   unsubMessages = onSnapshot(q, async (snapshot) => {
     const decrypted = [];
+    const incoming = [];
     for (const entry of snapshot.docs) {
       const data = entry.data();
       const body = await decryptMessage(data);
-      decrypted.push({ id: entry.id, senderId: data.senderId, createdAt: data.createdAt, ...body });
+      const item = { id: entry.id, senderId: data.senderId, createdAt: data.createdAt, expiresAt: data.expiresAt, ...body };
+      decrypted.push(item);
+      if (!firstMessageSnapshot && !seenMessageIds.has(item.id) && item.senderId !== user.uid) incoming.push(item);
     }
+
     state.messages = decrypted;
+    for (const item of decrypted) seenMessageIds.add(item.id);
+    firstMessageSnapshot = false;
+
     if (state.status === 'chat') render();
     queueMicrotask(scrollChatBottom);
+    for (const item of incoming.slice(-3)) notifyIncoming(item);
   }, (error) => {
     toast(`Messages blocked: ${error.message}`);
   });
@@ -289,6 +377,9 @@ async function sendMessage(text) {
       createdAt: serverTimestamp(),
       expiresAt
     });
+    playSendSound();
+  } catch (error) {
+    toast(`Send failed: ${error.message}`);
   } finally {
     sending = false;
   }
@@ -296,7 +387,11 @@ async function sendMessage(text) {
 
 async function deleteOwnMessage(messageId, senderId) {
   if (!room || senderId !== user.uid) return;
-  await deleteDoc(doc(db, 'rooms', room.id, 'messages', messageId));
+  try {
+    await deleteDoc(doc(db, 'rooms', room.id, 'messages', messageId));
+  } catch (error) {
+    toast(`Delete failed: ${error.message}`);
+  }
 }
 
 function leaveRoom() {
@@ -309,17 +404,99 @@ function leaveRoom() {
   cryptoKey = null;
   state.messages = [];
   state.members = [];
+  state.avatarEditorOpen = false;
   setStatus('ready');
 }
 
+function unlockAudio() {
+  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+}
+
+function blip(frequencies = [660], duration = 0.12, gainValue = 0.035) {
+  if (!state.soundEnabled) return;
+  try {
+    unlockAudio();
+    const now = audioContext.currentTime;
+    frequencies.forEach((freq, index) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, now + index * 0.055);
+      gain.gain.linearRampToValueAtTime(gainValue, now + index * 0.055 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.055 + duration);
+      osc.connect(gain).connect(audioContext.destination);
+      osc.start(now + index * 0.055);
+      osc.stop(now + index * 0.055 + duration + 0.02);
+    });
+  } catch {}
+}
+
+function playSendSound() {
+  blip([580, 780], 0.11, 0.025);
+}
+
+function playIncomingSound() {
+  blip([880, 660, 990], 0.12, 0.03);
+}
+
+function ensureNoticeStack() {
+  let stack = document.querySelector('.notice-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.className = 'notice-stack';
+    document.body.appendChild(stack);
+  }
+  return stack;
+}
+
 function toast(message) {
-  const existing = document.querySelector('.toast');
-  if (existing) existing.remove();
   const node = document.createElement('div');
   node.className = 'toast';
   node.textContent = message;
   document.body.appendChild(node);
   setTimeout(() => node.remove(), 3600);
+}
+
+function notifyIncoming(message) {
+  playIncomingSound();
+  const stack = ensureNoticeStack();
+  const node = document.createElement('button');
+  node.className = 'side-notice';
+  node.type = 'button';
+  node.innerHTML = `
+    ${renderAvatar(avatarForMessage(message), 'mini')}
+    <span><strong>${escapeHtml(nameForMessage(message))}</strong><em>${escapeHtml(String(message.text || '').slice(0, 90))}</em></span>
+  `;
+  node.addEventListener('click', () => {
+    scrollChatBottom();
+    focusComposer();
+    node.remove();
+  });
+  stack.appendChild(node);
+  setTimeout(() => node.remove(), 5200);
+
+  if (state.browserNotices && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(`${nameForMessage(message)} in ${room?.label || 'Veil Chat'}`, {
+        body: String(message.text || '').slice(0, 120),
+        tag: `veil-${room?.id || 'room'}`
+      });
+    } catch {}
+  }
+}
+
+async function requestBrowserNotices() {
+  if (!('Notification' in window)) {
+    toast('This browser does not support system notifications here.');
+    return;
+  }
+  const result = await Notification.requestPermission();
+  state.browserNotices = result === 'granted';
+  localStorage.setItem(LS_BROWSER_NOTICES, state.browserNotices ? 'on' : 'off');
+  toast(state.browserNotices ? 'System notifications enabled.' : 'System notifications not enabled.');
+  render();
 }
 
 function renderSetup(error = '') {
@@ -346,7 +523,8 @@ function render(detail = '') {
   if (!hasFirebaseConfig()) return renderSetup(detail);
   if (state.status === 'chat') return renderChat();
 
-  const lastRoom = localStorage.getItem(LS_LAST_ROOM) || '';
+  const params = new URLSearchParams(location.search);
+  const lastRoom = params.get('room') || localStorage.getItem(LS_LAST_ROOM) || '';
   appRoot.innerHTML = `
     <section class="home-screen">
       <aside class="brand-panel">
@@ -356,15 +534,25 @@ function render(detail = '') {
         <div class="trust-grid">
           <span>Anonymous login</span>
           <span>AES-GCM messages</span>
-          <span>No media storage</span>
+          <span>Profile pixels</span>
           <span>Mobile ready</span>
         </div>
       </aside>
 
       <section class="room-panel">
-        <label>Display name
-          <input id="displayName" maxlength="24" value="${escapeHtml(state.displayName)}">
-        </label>
+        <div class="profile-card">
+          ${renderAvatar(state.avatar, 'profile')}
+          <label>Display name
+            <input id="displayName" maxlength="24" value="${escapeHtml(state.displayName)}">
+          </label>
+          <button id="toggleAvatarEditor" type="button">Draw avatar</button>
+        </div>
+        ${state.avatarEditorOpen ? renderAvatarEditor() : ''}
+
+        <div class="quick-settings">
+          <button id="soundToggle" type="button">Sound: ${state.soundEnabled ? 'On' : 'Off'}</button>
+          <button id="browserNoticeToggle" type="button">System notifications: ${state.browserNotices ? 'On' : 'Off'}</button>
+        </div>
 
         <div class="split">
           <form id="createRoomForm" class="glass-form">
@@ -397,18 +585,16 @@ function render(detail = '') {
           </form>
         </div>
 
-        <p class="fine-print">Do not share exact home addresses unless needed. For meetups, use public places and disappearing messages.</p>
+        <p class="fine-print">Tip: Ctrl/⌘ + K jumps to typing. Room secrets are never uploaded; they only unlock local decryption.</p>
       </section>
     </section>
   `;
 
-  document.getElementById('displayName')?.addEventListener('input', (event) => {
-    state.displayName = event.target.value.trim().slice(0, 24) || 'Friend';
-    localStorage.setItem(LS_NAME, state.displayName);
-  });
+  bindSharedControls();
 
   document.getElementById('createRoomForm')?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    unlockAudio();
     const data = new FormData(event.currentTarget);
     selectedTtlHours = Number(data.get('ttl') || 24);
     await createRoom(data.get('label'), data.get('secret'));
@@ -416,23 +602,52 @@ function render(detail = '') {
 
   document.getElementById('joinRoomForm')?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    unlockAudio();
     const data = new FormData(event.currentTarget);
     await joinRoom(data.get('roomId'), data.get('secret'));
   });
 }
 
+function renderAvatarEditor() {
+  return `
+    <section class="avatar-editor" aria-label="Avatar editor">
+      <div class="avatar-toolbar">
+        <strong>Draw profile pixels</strong>
+        <span>Click cells to paint. Tiny, safe, and fast.</span>
+      </div>
+      <div class="palette-row">
+        ${AVATAR_COLORS.map((color, index) => `<button type="button" class="palette-dot ${selectedAvatarColor === index ? 'active' : ''}" data-avatar-color="${index}" style="--c:${color}" aria-label="Avatar color ${index}"></button>`).join('')}
+      </div>
+      <div class="avatar-canvas" role="grid">
+        ${normalizeAvatar(state.avatar).split('').map((item, index) => `<button type="button" data-paint-cell="${index}" style="--c:${AVATAR_COLORS[Number(item)] || AVATAR_COLORS[0]}"></button>`).join('')}
+      </div>
+      <div class="avatar-actions">
+        <button type="button" id="randomAvatar">Random</button>
+        <button type="button" id="clearAvatar">Clear</button>
+        <button type="button" id="closeAvatarEditor">Done</button>
+      </div>
+    </section>
+  `;
+}
+
 function renderChat() {
-  const inviteText = `${room.id}  +  your secret`;
+  const activeElement = document.activeElement;
+  lastRenderHadComposerFocus = Boolean(activeElement && activeElement.closest?.('.composer'));
+  const inviteLink = `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}`;
   const memberNames = state.members.map((member) => escapeHtml(member.displayName || 'Friend')).join(', ') || 'Only you';
   appRoot.innerHTML = `
     <section class="chat-shell">
       <header class="chat-topbar">
-        <div>
-          <strong>${escapeHtml(room.label || room.id)}</strong>
-          <span>${escapeHtml(room.id)}</span>
+        <div class="room-title-wrap">
+          ${renderAvatar(state.avatar, 'mini')}
+          <div>
+            <strong>${escapeHtml(room.label || room.id)}</strong>
+            <span>${escapeHtml(room.id)}</span>
+          </div>
         </div>
         <div class="top-actions">
-          <button id="copyInvite" type="button">Copy room ID</button>
+          <button id="profileButton" type="button">Profile</button>
+          <button id="copyInvite" type="button">Copy invite</button>
           <button id="leaveRoom" type="button">Leave</button>
         </div>
       </header>
@@ -441,30 +656,41 @@ function renderChat() {
         <span>Online room members</span>
         <strong>${memberNames}</strong>
       </aside>
+      ${state.avatarEditorOpen ? renderAvatarEditor() : ''}
 
       <section id="messageList" class="message-list">
         ${state.messages.length ? state.messages.map((message) => `
-          <article class="bubble ${message.senderId === user.uid ? 'mine' : ''} ${message.locked ? 'locked' : ''}">
-            <div class="bubble-meta">
-              <strong>${escapeHtml(message.name || 'Friend')}</strong>
-              ${message.senderId === user.uid ? `<button data-delete="${message.id}">Delete</button>` : ''}
-            </div>
-            <p>${linkify(escapeHtml(message.text || ''))}</p>
+          <article class="bubble-row ${message.senderId === user.uid ? 'mine' : ''}">
+            ${message.senderId === user.uid ? '' : renderAvatar(avatarForMessage(message), 'mini')}
+            <article class="bubble ${message.senderId === user.uid ? 'mine' : ''} ${message.locked ? 'locked' : ''}">
+              <div class="bubble-meta">
+                <strong>${escapeHtml(nameForMessage(message))}</strong>
+                ${message.senderId === user.uid ? `<button data-delete="${message.id}">Delete</button>` : ''}
+              </div>
+              <p>${linkify(escapeHtml(message.text || ''))}</p>
+            </article>
+            ${message.senderId === user.uid ? renderAvatar(avatarForMessage(message), 'mini') : ''}
           </article>
         `).join('') : `<div class="empty-state">No messages yet. Send the first encrypted message.</div>`}
       </section>
 
       <form id="composer" class="composer">
-        <textarea name="message" rows="1" maxlength="1800" placeholder="Type encrypted message..."></textarea>
+        <textarea name="message" rows="1" maxlength="1800" placeholder="Type encrypted message..." autocomplete="off"></textarea>
         <button type="submit">Send</button>
       </form>
     </section>
   `;
 
+  bindSharedControls();
+  document.getElementById('profileButton')?.addEventListener('click', () => {
+    state.avatarEditorOpen = !state.avatarEditorOpen;
+    renderChat();
+  });
   document.getElementById('leaveRoom')?.addEventListener('click', leaveRoom);
   document.getElementById('copyInvite')?.addEventListener('click', async () => {
-    await navigator.clipboard?.writeText(inviteText);
-    toast('Copied room ID. Send the secret separately.');
+    const text = `Veil room: ${room.id}\nLink: ${inviteLink}\nSecret: send separately`;
+    await navigator.clipboard?.writeText(text);
+    toast('Copied invite. Send the secret separately.');
   });
 
   document.querySelectorAll('[data-delete]').forEach((button) => {
@@ -474,25 +700,91 @@ function renderChat() {
     });
   });
 
-  document.getElementById('composer')?.addEventListener('submit', async (event) => {
+  const composer = document.getElementById('composer');
+  const area = composer?.elements.message;
+  composer?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const area = event.currentTarget.elements.message;
+    unlockAudio();
     const value = area.value;
     area.value = '';
+    autoGrow(area);
     await sendMessage(value);
+    area.focus({ preventScroll: true });
   });
 
-  const area = document.querySelector('.composer textarea');
+  area?.addEventListener('input', () => autoGrow(area));
   area?.addEventListener('keydown', async (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       const value = area.value;
       area.value = '';
+      autoGrow(area);
       await sendMessage(value);
+      area.focus({ preventScroll: true });
     }
   });
 
   scrollChatBottom();
+  if (lastRenderHadComposerFocus || window.innerWidth > 820) requestAnimationFrame(focusComposer);
+}
+
+function bindSharedControls() {
+  document.getElementById('displayName')?.addEventListener('input', (event) => {
+    state.displayName = event.target.value.trim().slice(0, 24) || 'Friend';
+    localStorage.setItem(LS_NAME, state.displayName);
+    syncMemberProfile().catch(() => {});
+  });
+  document.getElementById('toggleAvatarEditor')?.addEventListener('click', () => {
+    state.avatarEditorOpen = !state.avatarEditorOpen;
+    render();
+  });
+  document.getElementById('closeAvatarEditor')?.addEventListener('click', () => {
+    state.avatarEditorOpen = false;
+    render();
+  });
+  document.getElementById('randomAvatar')?.addEventListener('click', () => {
+    saveAvatar(randomAvatar());
+    render();
+  });
+  document.getElementById('clearAvatar')?.addEventListener('click', () => {
+    saveAvatar('0'.repeat(64));
+    render();
+  });
+  document.querySelectorAll('[data-avatar-color]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedAvatarColor = Number(button.dataset.avatarColor || 0);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-paint-cell]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.paintCell);
+      const cells = normalizeAvatar(state.avatar).split('');
+      cells[index] = String(selectedAvatarColor);
+      saveAvatar(cells.join(''));
+      render();
+    });
+  });
+  document.getElementById('soundToggle')?.addEventListener('click', () => {
+    state.soundEnabled = !state.soundEnabled;
+    localStorage.setItem(LS_SOUND, state.soundEnabled ? 'on' : 'off');
+    if (state.soundEnabled) blip([660, 880], 0.1, 0.03);
+    render();
+  });
+  document.getElementById('browserNoticeToggle')?.addEventListener('click', requestBrowserNotices);
+}
+
+function autoGrow(area) {
+  if (!area) return;
+  area.style.height = 'auto';
+  area.style.height = `${Math.min(132, Math.max(44, area.scrollHeight))}px`;
+}
+
+function focusComposer() {
+  const area = document.querySelector('.composer textarea');
+  if (!area) return;
+  if (window.innerWidth <= 820 && !lastRenderHadComposerFocus) return;
+  area.focus({ preventScroll: true });
 }
 
 function linkify(safeHtml) {
@@ -503,6 +795,18 @@ function scrollChatBottom() {
   const list = document.getElementById('messageList');
   if (list) list.scrollTop = list.scrollHeight;
 }
+
+document.addEventListener('pointerdown', () => unlockAudio(), { once: true });
+document.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    focusComposer();
+  }
+  if (event.key === 'Escape' && state.avatarEditorOpen) {
+    state.avatarEditorOpen = false;
+    render();
+  }
+});
 
 window.addEventListener('beforeunload', () => {
   if (unsubMessages) unsubMessages();

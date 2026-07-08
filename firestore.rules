@@ -24,6 +24,13 @@ service cloud.firestore {
         && get(roomDoc(roomId)).data.createdBy == request.auth.uid;
     }
 
+    function validProfile(data) {
+      return data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() <= 24
+        && (!data.keys().hasAny(['avatar']) || (data.avatar is string && data.avatar.size() <= 80));
+    }
+
     match /rooms/{roomId} {
       allow create: if signedIn()
         && request.resource.data.createdBy == request.auth.uid
@@ -32,7 +39,11 @@ service cloud.firestore {
         && request.resource.data.label is string
         && request.resource.data.ttlHours is number;
 
-      allow read: if isMember(roomId);
+      // Needed so someone with a room ID can fetch salt/inviteHash and verify the room secret.
+      // Listing all rooms is still blocked.
+      allow get: if signedIn();
+      allow list: if false;
+
       allow update, delete: if isOwner(roomId);
 
       match /members/{uid} {
@@ -40,17 +51,14 @@ service cloud.firestore {
 
         allow create: if signedIn()
           && uid == request.auth.uid
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.displayName is string
-          && request.resource.data.inviteHash == get(roomDoc(roomId)).data.inviteHash
-          && request.resource.data.displayName.size() <= 24;
+          && validProfile(request.resource.data)
+          && request.resource.data.inviteHash == get(roomDoc(roomId)).data.inviteHash;
 
         allow update: if signedIn()
           && uid == request.auth.uid
           && isMember(roomId)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() <= 24;
+          && validProfile(request.resource.data)
+          && request.resource.data.inviteHash == resource.data.inviteHash;
 
         allow delete: if signedIn() && uid == request.auth.uid;
       }
