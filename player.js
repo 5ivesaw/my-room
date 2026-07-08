@@ -28,6 +28,7 @@ export class Player {
         
         // Mouse look
         const onMouseMove = (event) => {
+            if (document.body.classList.contains('mobile-input')) return;
             if (!this.isLocked || !this.allowLook) return;
             const movementX = event.movementX || 0;
             const movementY = event.movementY || 0;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createWorld } from './world.js?v=52';
-import { Player } from './player.js?v=52';
+import { Player } from './player.js?v=53';
 import { InteractionSystem } from './interactions.js?v=52';
 import { sounds } from './sounds.js?v=49';
 
@@ -102,8 +102,12 @@ const mobileSecondaryBtn = document.getElementById('mobile-secondary');
 const mobileFullscreenBtn = document.getElementById('mobile-fullscreen');
 const mobilePiano = document.getElementById('mobile-piano');
 
+function shouldUseMobileInput() {
+    return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
+}
+
 const mobileInput = {
-    enabled: window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0,
+    enabled: shouldUseMobileInput(),
     stickPointer: null,
     lookPointer: null,
     stickStartX: 0,
@@ -116,12 +120,10 @@ const mobileInput = {
 
 document.body.classList.toggle('mobile-input', mobileInput.enabled);
 
-if (mobileInput.enabled) {
-    document.addEventListener('gesturestart', (event) => event.preventDefault?.(), { passive: false });
-    document.addEventListener('touchmove', (event) => {
-        if (hasStarted && !document.body.classList.contains('pc-open')) event.preventDefault();
-    }, { passive: false });
-}
+document.addEventListener('gesturestart', (event) => event.preventDefault?.(), { passive: false });
+document.addEventListener('touchmove', (event) => {
+    if (mobileInput.enabled && hasStarted && !document.body.classList.contains('pc-open')) event.preventDefault();
+}, { passive: false });
 
 
 function syncSettingsUi() {
@@ -355,10 +357,24 @@ let pcReturnPending = false;
 
 // Handle Window Resize
 function onResize() {
+    const wasMobile = mobileInput.enabled;
+    mobileInput.enabled = shouldUseMobileInput();
+    document.body.classList.toggle('mobile-input', mobileInput.enabled);
+
+    if (mobileInput.enabled) {
+        player.isLocked = hasStarted && !document.body.classList.contains('pc-open');
+        hud.classList.toggle('active', player.isLocked);
+        pauseOverlay.classList.add('hidden');
+    } else if (wasMobile) {
+        clearMovementInput();
+        player.isLocked = document.pointerLockElement === document.body;
+    }
+
     camera.aspect = window.innerWidth / window.innerHeight;
     applyCameraSettings();
     renderer.setSize(window.innerWidth, window.innerHeight);
     applyRenderScale();
+    updateMobileControls();
 }
 
 window.addEventListener('resize', onResize);
@@ -441,7 +457,7 @@ function mobileScreenPoint(event) {
 }
 
 function bindMobileControls() {
-    if (!mobileInput.enabled || !mobileControls) return;
+    if (!mobileControls) return;
 
     const stop = (event) => {
         event.preventDefault();
@@ -449,6 +465,7 @@ function bindMobileControls() {
     };
 
     mobileStick?.addEventListener('pointerdown', (event) => {
+        if (!mobileInput.enabled) return;
         stop(event);
         mobileInput.stickPointer = event.pointerId;
         mobileStick.setPointerCapture?.(event.pointerId);
@@ -494,6 +511,7 @@ function bindMobileControls() {
     });
 
     mobileLookZone?.addEventListener('pointerdown', (event) => {
+        if (!mobileInput.enabled) return;
         if (event.target.closest?.('button') || event.target.closest?.('#mobile-stick')) return;
         stop(event);
         mobileInput.lookPointer = event.pointerId;
@@ -524,16 +542,19 @@ function bindMobileControls() {
     mobileLookZone?.addEventListener('pointercancel', releaseLook);
 
     mobileInteractBtn?.addEventListener('pointerdown', (event) => {
+        if (!mobileInput.enabled) return;
         stop(event);
         if (interactions?.currentHover) interactions.triggerInteraction('touch');
     });
 
     mobileSecondaryBtn?.addEventListener('pointerdown', (event) => {
+        if (!mobileInput.enabled) return;
         stop(event);
         triggerSecondaryAction();
     });
 
     mobileFullscreenBtn?.addEventListener('pointerdown', async (event) => {
+        if (!mobileInput.enabled) return;
         stop(event);
         try {
             if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
