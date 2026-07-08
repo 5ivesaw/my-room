@@ -11,6 +11,7 @@ const APP_DEFS = [
     { id: 'viewer', title: 'Media Viewer', icon: 'MV', pinned: false },
     { id: 'taskmgr', title: 'Task Manager', icon: 'TM', pinned: false },
     { id: 'store', title: 'App Store', icon: 'AS', pinned: false },
+    { id: 'veilchat', title: 'Veil Chat', icon: 'VC', pinned: true },
     { id: 'gamehub', title: 'Game Hub', icon: 'GH', pinned: true },
     { id: 'games', title: 'Mini Games', icon: 'MG', pinned: true },
     { id: 'mines', title: 'Mine Tiles', icon: 'MT', pinned: false },
@@ -920,6 +921,7 @@ class PCSystem {
             ['terminal', 'Terminal'],
             ['notepad', 'Notepad'],
             ['calculator', 'Calculator'],
+            ['veilchat', 'Veil Chat'],
             ['gamehub', 'Game Hub'],
             ['games', 'Mini Games'],
             ['taskmgr', 'Task Manager'],
@@ -966,6 +968,7 @@ class PCSystem {
             viewer: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M7 15l3-3 2.6 2.6 1.8-1.8L17 15"/><circle cx="9" cy="9" r="1.3"/></svg>`,
             taskmgr: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 15V12"/><path d="M12 15V9"/><path d="M16 15V11"/></svg>`,
             store: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8h11l-1 10.2a1.5 1.5 0 0 1-1.5 1.3H9a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 9V7.8A3 3 0 0 1 12 4.8a3 3 0 0 1 3 3V9"/><path d="M9 11.2h0"/><path d="M15 11.2h0"/></svg>`,
+            veilchat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 10.4V8.2a5.2 5.2 0 0 1 10.4 0v2.2"/><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M12 14v2.4"/><circle cx="12" cy="13.6" r="1" fill="currentColor" stroke="none"/><path d="M8.6 17.5h6.8"/></svg>`,
             gamehub: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 8.5h9a4 4 0 0 1 3.9 4.8l-.4 1.7a2.7 2.7 0 0 1-4.5 1.4L13.7 15a2.5 2.5 0 0 0-3.4 0l-1.8 1.4A2.7 2.7 0 0 1 4 15l-.4-1.7A4 4 0 0 1 7.5 8.5z"/><path d="M8.8 12h2.4"/><path d="M10 10.8v2.4"/><path d="M15.8 11.2h0"/><path d="M17.6 13h0"/></svg>`,
             games: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>`,
             mines: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 4.5v2.2"/><path d="M12 17.3v2.2"/><path d="M4.5 12h2.2"/><path d="M17.3 12h2.2"/><path d="m6.8 6.8 1.5 1.5"/><path d="m15.7 15.7 1.5 1.5"/><path d="m17.2 6.8-1.5 1.5"/><path d="m8.3 15.7-1.5 1.5"/></svg>`,
@@ -1140,6 +1143,7 @@ class PCSystem {
         if (win.app === 'viewer') return this.renderViewer(win);
         if (win.app === 'taskmgr') return this.renderTaskManager(win);
         if (win.app === 'store') return this.renderStore(win);
+        if (win.app === 'veilchat') return this.renderVeilChat(win);
         if (win.app === 'gamehub') return this.renderGameHub(win);
         if (win.app === 'games') return this.renderGames(win);
         if (win.app === 'mines') return this.renderMines(win);
@@ -1426,6 +1430,19 @@ class PCSystem {
                     <p>Use arrow keys while this monitor is open. Eat dots, avoid yourself.</p>
                     <button type="button" data-action="open-app" data-app="snake">Play Neon Snake</button>
                 </article>
+            </div>
+        `;
+    }
+
+    renderVeilChat() {
+        return `
+            <div class="veilchat-app">
+                <iframe
+                    class="veilchat-frame"
+                    src="./veil-chat/index.html"
+                    title="Veil Chat"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-clipboard-read allow-clipboard-write"
+                ></iframe>
             </div>
         `;
     }

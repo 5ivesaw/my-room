@@ -1,0 +1,76 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomDoc(roomId) {
+      return /databases/$(database)/documents/rooms/$(roomId);
+    }
+
+    function memberDoc(roomId, uid) {
+      return /databases/$(database)/documents/rooms/$(roomId)/members/$(uid);
+    }
+
+    function isMember(roomId) {
+      return signedIn() && exists(memberDoc(roomId, request.auth.uid));
+    }
+
+    function isOwner(roomId) {
+      return signedIn()
+        && exists(roomDoc(roomId))
+        && get(roomDoc(roomId)).data.createdBy == request.auth.uid;
+    }
+
+    match /rooms/{roomId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.inviteHash is string
+        && request.resource.data.salt is string
+        && request.resource.data.label is string
+        && request.resource.data.ttlHours is number;
+
+      allow read: if isMember(roomId);
+      allow update, delete: if isOwner(roomId);
+
+      match /members/{uid} {
+        allow read: if isMember(roomId);
+
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.inviteHash == get(roomDoc(roomId)).data.inviteHash
+          && request.resource.data.displayName.size() <= 24;
+
+        allow update: if signedIn()
+          && uid == request.auth.uid
+          && isMember(roomId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() <= 24;
+
+        allow delete: if signedIn() && uid == request.auth.uid;
+      }
+
+      match /messages/{messageId} {
+        allow read: if isMember(roomId);
+
+        allow create: if isMember(roomId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type == 'text'
+          && request.resource.data.iv is string
+          && request.resource.data.ciphertext is string
+          && request.resource.data.iv.size() < 80
+          && request.resource.data.ciphertext.size() < 6000;
+
+        allow delete: if isMember(roomId)
+          && resource.data.senderId == request.auth.uid;
+
+        allow update: if false;
+      }
+    }
+  }
+}
