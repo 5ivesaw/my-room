@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=51';
-import { Player } from './player.js?v=49';
-import { InteractionSystem } from './interactions.js?v=49';
+import { createWorld } from './world.js?v=52';
+import { Player } from './player.js?v=52';
+import { InteractionSystem } from './interactions.js?v=52';
 import { sounds } from './sounds.js?v=49';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
@@ -93,6 +93,36 @@ const hud = document.getElementById('hud');
 const fadeOverlay = document.getElementById('fade-overlay');
 const messageOverlay = document.getElementById('message-overlay');
 const pauseOverlay = document.getElementById('pause-overlay');
+const mobileControls = document.getElementById('mobile-controls');
+const mobileStick = document.getElementById('mobile-stick');
+const mobileStickKnob = document.getElementById('mobile-stick-knob');
+const mobileLookZone = document.querySelector('.mobile-look-zone');
+const mobileInteractBtn = document.getElementById('mobile-interact');
+const mobileSecondaryBtn = document.getElementById('mobile-secondary');
+const mobileFullscreenBtn = document.getElementById('mobile-fullscreen');
+const mobilePiano = document.getElementById('mobile-piano');
+
+const mobileInput = {
+    enabled: window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0,
+    stickPointer: null,
+    lookPointer: null,
+    stickStartX: 0,
+    stickStartY: 0,
+    lookX: 0,
+    lookY: 0,
+    moveX: 0,
+    moveZ: 0
+};
+
+document.body.classList.toggle('mobile-input', mobileInput.enabled);
+
+if (mobileInput.enabled) {
+    document.addEventListener('gesturestart', (event) => event.preventDefault?.(), { passive: false });
+    document.addEventListener('touchmove', (event) => {
+        if (hasStarted && !document.body.classList.contains('pc-open')) event.preventDefault();
+    }, { passive: false });
+}
+
 
 function syncSettingsUi() {
     if (qualitySelect) qualitySelect.value = settings.quality;
@@ -251,7 +281,7 @@ function wakeFromBed(message = 'You wake back up in bed.') {
     showMessage(message);
     window.setTimeout(() => {
         chaosActive = false;
-        player.lock();
+        requestControlLock();
     }, 280);
 }
 
@@ -324,15 +354,24 @@ let hasStarted = false;
 let pcReturnPending = false;
 
 // Handle Window Resize
-window.addEventListener('resize', () => {
+function onResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     applyCameraSettings();
     renderer.setSize(window.innerWidth, window.innerHeight);
     applyRenderScale();
-});
+}
+
+window.addEventListener('resize', onResize);
 
 // Pointer Lock Controls
 document.addEventListener('pointerlockchange', () => {
+    if (mobileInput.enabled) {
+        player.isLocked = hasStarted && !document.body.classList.contains('pc-open');
+        hud.classList.toggle('active', player.isLocked);
+        pauseOverlay.classList.add('hidden');
+        return;
+    }
+
     if (document.pointerLockElement === document.body) {
         player.isLocked = true;
         hud.classList.add('active');
@@ -350,8 +389,20 @@ document.addEventListener('pointerlockchange', () => {
     }
 });
 
-pauseOverlay.addEventListener('click', () => {
+function requestControlLock() {
+    if (mobileInput.enabled) {
+        player.isLocked = true;
+        hud.classList.add('active');
+        pauseOverlay.classList.add('hidden');
+        updateMobileControls();
+        return;
+    }
+
     player.lock();
+}
+
+pauseOverlay.addEventListener('click', () => {
+    requestControlLock();
 });
 
 function clearMovementInput() {
@@ -359,27 +410,178 @@ function clearMovementInput() {
     player.moveBackward = false;
     player.moveLeft = false;
     player.moveRight = false;
+    mobileInput.moveX = 0;
+    mobileInput.moveZ = 0;
+    if (mobileStickKnob) mobileStickKnob.style.transform = 'translate3d(0, 0, 0)';
     chairPushLeft = false;
     chairPushRight = false;
 }
+
+function updateMobileMoveState() {
+    const x = mobileInput.moveX;
+    const z = mobileInput.moveZ;
+    player.moveForward = z < -0.22;
+    player.moveBackward = z > 0.22;
+    player.moveLeft = x < -0.22;
+    player.moveRight = x > 0.22;
+}
+
+function updateMobileControls() {
+    if (!mobileInput.enabled || !mobileControls) return;
+    const active = hasStarted && !document.body.classList.contains('pc-open');
+    mobileControls.classList.toggle('hidden', !active);
+    document.body.classList.toggle('mobile-special', active && ((isSitting && sitAnimPhase === 'seated') || (isHanging && hangAnimPhase === 'hanging')));
+    document.body.classList.toggle('mobile-piano-mode', active && isSittingPiano && sitAnimPhase === 'seated');
+    if (mobilePiano) mobilePiano.classList.toggle('hidden', !(active && isSittingPiano && sitAnimPhase === 'seated'));
+}
+
+function mobileScreenPoint(event) {
+    const touch = event.touches?.[0] || event.changedTouches?.[0] || event;
+    return { x: touch.clientX, y: touch.clientY };
+}
+
+function bindMobileControls() {
+    if (!mobileInput.enabled || !mobileControls) return;
+
+    const stop = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    mobileStick?.addEventListener('pointerdown', (event) => {
+        stop(event);
+        mobileInput.stickPointer = event.pointerId;
+        mobileStick.setPointerCapture?.(event.pointerId);
+        const rect = mobileStick.getBoundingClientRect();
+        mobileInput.stickStartX = rect.left + rect.width / 2;
+        mobileInput.stickStartY = rect.top + rect.height / 2;
+    });
+
+    mobileStick?.addEventListener('pointermove', (event) => {
+        if (mobileInput.stickPointer !== event.pointerId) return;
+        stop(event);
+        const max = 42;
+        const dx = Math.max(-max, Math.min(max, event.clientX - mobileInput.stickStartX));
+        const dy = Math.max(-max, Math.min(max, event.clientY - mobileInput.stickStartY));
+        const len = Math.hypot(dx, dy);
+        const scale = len > max ? max / len : 1;
+        const x = dx * scale;
+        const y = dy * scale;
+        mobileInput.moveX = x / max;
+        mobileInput.moveZ = y / max;
+        if (mobileStickKnob) mobileStickKnob.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        updateMobileMoveState();
+    });
+
+    const releaseStick = (event) => {
+        if (mobileInput.stickPointer !== event.pointerId) return;
+        stop(event);
+        mobileInput.stickPointer = null;
+        mobileInput.moveX = 0;
+        mobileInput.moveZ = 0;
+        updateMobileMoveState();
+        if (mobileStickKnob) mobileStickKnob.style.transform = 'translate3d(0, 0, 0)';
+    };
+
+    mobileStick?.addEventListener('pointerup', releaseStick);
+    mobileStick?.addEventListener('pointercancel', releaseStick);
+    mobileStick?.addEventListener('lostpointercapture', () => {
+        mobileInput.stickPointer = null;
+        mobileInput.moveX = 0;
+        mobileInput.moveZ = 0;
+        updateMobileMoveState();
+        if (mobileStickKnob) mobileStickKnob.style.transform = 'translate3d(0, 0, 0)';
+    });
+
+    mobileLookZone?.addEventListener('pointerdown', (event) => {
+        if (event.target.closest?.('button') || event.target.closest?.('#mobile-stick')) return;
+        stop(event);
+        mobileInput.lookPointer = event.pointerId;
+        mobileInput.lookX = event.clientX;
+        mobileInput.lookY = event.clientY;
+        mobileLookZone.setPointerCapture?.(event.pointerId);
+    });
+
+    mobileLookZone?.addEventListener('pointermove', (event) => {
+        if (mobileInput.lookPointer !== event.pointerId || !player.allowLook || document.body.classList.contains('pc-open')) return;
+        stop(event);
+        const dx = event.clientX - mobileInput.lookX;
+        const dy = event.clientY - mobileInput.lookY;
+        mobileInput.lookX = event.clientX;
+        mobileInput.lookY = event.clientY;
+        if (Math.abs(dx) > 90 || Math.abs(dy) > 90) return;
+        player.yawObject.rotation.y -= dx * 0.0042;
+        player.pitchObject.rotation.x -= dy * 0.0042;
+        player.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, player.pitchObject.rotation.x));
+    });
+
+    const releaseLook = (event) => {
+        if (mobileInput.lookPointer !== event.pointerId) return;
+        stop(event);
+        mobileInput.lookPointer = null;
+    };
+    mobileLookZone?.addEventListener('pointerup', releaseLook);
+    mobileLookZone?.addEventListener('pointercancel', releaseLook);
+
+    mobileInteractBtn?.addEventListener('pointerdown', (event) => {
+        stop(event);
+        if (interactions?.currentHover) interactions.triggerInteraction('touch');
+    });
+
+    mobileSecondaryBtn?.addEventListener('pointerdown', (event) => {
+        stop(event);
+        triggerSecondaryAction();
+    });
+
+    mobileFullscreenBtn?.addEventListener('pointerdown', async (event) => {
+        stop(event);
+        try {
+            if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+            else await document.exitFullscreen?.();
+        } catch {
+            showMessage('Fullscreen is blocked by this browser.');
+        }
+    });
+
+    mobilePiano?.addEventListener('pointerdown', (event) => {
+        const key = event.target.closest('[data-piano-code]');
+        if (!key) return;
+        stop(event);
+        if (!isSittingPiano || sitAnimPhase !== 'seated') return;
+        const code = key.dataset.pianoCode;
+        const freq = worldData?.pianoKeyMap?.[code];
+        if (freq && worldData?.playPianoKey) worldData.playPianoKey(freq);
+    });
+
+    window.addEventListener('orientationchange', () => setTimeout(() => {
+        onResize();
+        updateMobileControls();
+    }, 250));
+
+    updateMobileControls();
+}
+
 
 window.addEventListener('bedroom-pc-open', () => {
     pcReturnPending = false;
     pauseOverlay.classList.add('hidden');
     clearMovementInput();
+    updateMobileControls();
 });
 
 window.addEventListener('bedroom-pc-close', () => {
     pcReturnPending = true;
     pauseOverlay.classList.add('hidden');
     clearMovementInput();
+    updateMobileControls();
 });
 
 window.addEventListener('bedroom-pc-hidden', () => {
     if (!pcReturnPending) return;
     pcReturnPending = false;
     updateVisibilityCulling(true);
-    if (hasStarted) player.lock();
+    if (hasStarted) requestControlLock();
+    updateMobileControls();
 });
 
 window.addEventListener('blur', clearMovementInput);
@@ -408,6 +610,8 @@ let sitChairYaw = 0;
 let sitChairSpinVelocity = 0;
 let chairPushLeft = false;
 let chairPushRight = false;
+
+bindMobileControls();
 
 function startSit(chairWorldPos, deskLookAt, eyeHeight = 1.25, pitchTarget = 0.1, options = {}) {
     if (isSitting || isHanging) return;
@@ -590,6 +794,30 @@ function updateHangAnimation(dt, worldData) {
     }
 }
 
+function triggerSecondaryAction() {
+    if (document.body.classList.contains('pc-open')) return false;
+
+    if (isSitting && sitAnimPhase === 'seated') {
+        if (isSittingPiano) reportPianoSitSpam();
+        if (sfx) sfx.play('sit');
+        sitAnimPhase = 'standingUp';
+        sitAnimTime = 0;
+        if (interactions) interactions.disableE = false;
+        updateMobileControls();
+        return true;
+    }
+
+    if (isHanging && hangAnimPhase === 'hanging') {
+        if (sfx) sfx.play('drop');
+        hangAnimPhase = 'lettingGo';
+        hangAnimTime = 0;
+        updateMobileControls();
+        return true;
+    }
+
+    return false;
+}
+
 // Key handler for special states
 document.addEventListener('keydown', (e) => {
     if (document.body.classList.contains('pc-open')) return;
@@ -599,13 +827,7 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.code === 'Space') {
-        if (isSitting && sitAnimPhase === 'seated') {
-            if (isSittingPiano) reportPianoSitSpam();
-            if (sfx) sfx.play('sit');
-            sitAnimPhase = 'standingUp';
-            sitAnimTime = 0;
-            interactions.disableE = false;
-        }
+        if (triggerSecondaryAction()) e.preventDefault();
     } else if (isSittingPiano && sitAnimPhase === 'seated') {
         if (e.repeat) return; // Fix piano key spamming
         const keyMap = worldData && worldData.pianoKeyMap ? worldData.pianoKeyMap : {};
@@ -613,11 +835,7 @@ document.addEventListener('keydown', (e) => {
             worldData.playPianoKey(keyMap[e.code]);
         }
     } else if (e.code === 'KeyE') {
-        if (isHanging && hangAnimPhase === 'hanging') {
-            if (sfx) sfx.play('drop');
-            hangAnimPhase = 'lettingGo';
-            hangAnimTime = 0;
-        }
+        triggerSecondaryAction();
     }
 });
 
@@ -660,7 +878,7 @@ enterBtn.addEventListener('click', async () => {
     isWakingUp = true;
     if (sfx) sfx.play('wake', false, 0.5);
 
-    player.lock();
+    requestControlLock();
 
     setTimeout(() => {
         fadeOverlay.classList.remove('blackout');
@@ -944,6 +1162,7 @@ function stepGame(dt) {
         }
     }
 
+    updateMobileControls();
     renderer.render(scene, camera);
 }
 

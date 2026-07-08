@@ -78,7 +78,25 @@ export class Player {
     }
     
     lock() {
-        this.domElement.requestPointerLock();
+        if (document.body.classList.contains('mobile-input')) {
+            this.isLocked = true;
+            return;
+        }
+
+        if (this.domElement.requestPointerLock) {
+            try {
+                const result = this.domElement.requestPointerLock();
+                if (result && typeof result.catch === 'function') {
+                    result.catch(() => {
+                        this.isLocked = true;
+                    });
+                }
+            } catch {
+                this.isLocked = true;
+            }
+        } else {
+            this.isLocked = true;
+        }
     }
     
     update(dt) {

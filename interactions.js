@@ -52,7 +52,8 @@ export class InteractionSystem {
     }
 
     getPromptText(interactable) {
-        const keyLabel = this.disableE || interactable.mouseOnly ? 'Click' : 'E';
+        const isMobile = document.body.classList.contains('mobile-input');
+        const keyLabel = isMobile ? 'Tap' : (this.disableE || interactable.mouseOnly ? 'Click' : 'E');
         return `[${keyLabel}] ${this.getLabel(interactable)}`;
     }
     

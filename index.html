@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="description" content="A playable 3D bedroom with an interactive piano, gaming setup, and in-room PC game hub.">
     <meta name="theme-color" content="#101827">
     <meta property="og:title" content="My Room">
@@ -10,7 +10,7 @@
     <meta property="og:type" content="website">
     <title>My Room</title>
     <link rel="icon" href="assets/my-room-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=51">
+    <link rel="stylesheet" href="styles.css?v=52">
     <link rel="stylesheet" href="pc-os.css?v=49">
     <!-- Import map for Three.js -->
     <script type="importmap">
@@ -114,10 +114,44 @@
             <div id="pause-overlay" class="hidden">
                 <p>Click to resume</p>
             </div>
+
+            <!-- Mobile / tablet controls -->
+            <div id="mobile-controls" class="hidden" aria-label="Touch controls">
+                <div class="mobile-look-zone" aria-hidden="true">
+                    <span>drag to look</span>
+                </div>
+
+                <div class="mobile-stick" id="mobile-stick" aria-label="Move joystick">
+                    <div class="mobile-stick-ring"></div>
+                    <div class="mobile-stick-knob" id="mobile-stick-knob"></div>
+                </div>
+
+                <div class="mobile-actions">
+                    <button id="mobile-interact" type="button">Interact</button>
+                    <button id="mobile-secondary" type="button">Stand / Drop</button>
+                    <button id="mobile-fullscreen" type="button">Fullscreen</button>
+                </div>
+
+                <div id="mobile-piano" class="mobile-piano hidden" aria-label="Mobile piano keys">
+                    <button type="button" data-piano-code="KeyZ">C</button>
+                    <button type="button" data-piano-code="KeyX">D</button>
+                    <button type="button" data-piano-code="KeyC">E</button>
+                    <button type="button" data-piano-code="KeyV">F</button>
+                    <button type="button" data-piano-code="KeyB">G</button>
+                    <button type="button" data-piano-code="KeyN">A</button>
+                    <button type="button" data-piano-code="KeyM">B</button>
+                    <button type="button" data-piano-code="KeyQ">C+</button>
+                    <button type="button" data-piano-code="KeyW">D+</button>
+                    <button type="button" data-piano-code="KeyE">E+</button>
+                    <button type="button" data-piano-code="KeyR">F+</button>
+                    <button type="button" data-piano-code="KeyT">G+</button>
+                </div>
+            </div>
+
         </div>
         
         
-        <script type="module" src="main.js?v=51"></script>
+        <script type="module" src="main.js?v=52"></script>
     </div>
 </body>
 </html>
