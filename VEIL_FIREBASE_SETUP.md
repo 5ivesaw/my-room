@@ -142,3 +142,32 @@ Recommended use:
 - Videos and large media: not recommended for the free Firestore-only version.
 
 After replacing v56 files, publish the updated `firestore.rules` file in Firebase Console. The message ciphertext limit was raised to allow small encrypted attachments.
+
+## v57 Friends and DMs
+
+Veil now supports contact links, friend requests, and direct messages without asking people to manually create a group or type a room ID.
+
+How it works:
+
+1. Each browser creates an anonymous Firebase user.
+2. Veil creates a local RSA-OAEP key pair for that browser.
+3. The public key is saved in `users/{uid}`.
+4. The private key stays in that browser's local storage.
+5. When a friend request is accepted, Veil creates a DM room and encrypts that DM key separately for both users.
+6. Messages are still encrypted with AES-GCM before Firestore sees them.
+
+Important limitations:
+
+- A different browser/device is a different anonymous account.
+- If a user clears browser data, their private DM key is lost and they need a new friend request.
+- For real account portability later, add email login or passkey login.
+- Publish the updated `firestore.rules` after replacing the v57 files.
+
+Friend flow:
+
+1. Open Veil Chat.
+2. Click **Copy my contact link**.
+3. Send that one website link to a friend.
+4. Friend opens it and clicks **Send request**.
+5. You accept the request inside Veil.
+6. The DM appears under **Direct messages**.

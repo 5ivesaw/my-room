@@ -24,20 +24,68 @@ service cloud.firestore {
         && get(roomDoc(roomId)).data.createdBy == request.auth.uid;
     }
 
-    function validProfile(data) {
-      return data.uid == request.auth.uid
+    function validPublicProfile(data, uid) {
+      return data.uid == uid
+        && data.displayName is string
+        && data.displayName.size() <= 24
+        && data.avatar is string
+        && data.avatar.size() <= 80
+        && data.publicKey is map;
+    }
+
+    function validMemberProfile(data, uid) {
+      return data.uid == uid
         && data.displayName is string
         && data.displayName.size() <= 24
         && (!data.keys().hasAny(['avatar']) || (data.avatar is string && data.avatar.size() <= 80));
     }
 
+    match /users/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create, update: if signedIn()
+        && uid == request.auth.uid
+        && validPublicProfile(request.resource.data, request.auth.uid);
+
+      match /requests/{fromUid} {
+        allow read, delete: if signedIn() && uid == request.auth.uid;
+        allow create, update: if signedIn()
+          && fromUid == request.auth.uid
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() <= 24
+          && request.resource.data.avatar is string
+          && request.resource.data.avatar.size() <= 80;
+      }
+
+      match /friends/{friendUid} {
+        allow read, delete: if signedIn() && uid == request.auth.uid;
+        // Lets the user accepting a friend request create both friendship cards:
+        // their own card and the other person's reciprocal card.
+        allow create, update: if signedIn()
+          && (uid == request.auth.uid || friendUid == request.auth.uid)
+          && request.resource.data.uid == friendUid
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() <= 24
+          && request.resource.data.dmRoomId is string
+          && request.resource.data.dmRoomId.size() < 180
+          && (!request.resource.data.keys().hasAny(['avatar']) || request.resource.data.avatar is string);
+      }
+    }
+
     match /rooms/{roomId} {
       allow create: if signedIn()
         && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.inviteHash is string
-        && request.resource.data.salt is string
         && request.resource.data.label is string
-        && request.resource.data.ttlHours is number;
+        && request.resource.data.ttlHours is number
+        && (
+          (
+            request.resource.data.inviteHash is string
+            && request.resource.data.salt is string
+          )
+          || request.resource.data.mode == 'dm'
+        );
 
       // Needed so someone with a room ID can fetch salt/inviteHash and verify the room secret.
       // Listing all rooms is still blocked.
@@ -46,19 +94,36 @@ service cloud.firestore {
 
       allow update, delete: if isOwner(roomId);
 
+      match /keys/{uid} {
+        allow read: if signedIn() && uid == request.auth.uid && isMember(roomId);
+        allow create, update: if isOwner(roomId)
+          && get(roomDoc(roomId)).data.mode == 'dm'
+          && request.resource.data.uid == uid
+          && request.resource.data.encryptedSecret is string
+          && request.resource.data.encryptedSecret.size() < 800;
+        allow delete: if false;
+      }
+
       match /members/{uid} {
         allow read: if isMember(roomId);
 
         allow create: if signedIn()
-          && uid == request.auth.uid
-          && validProfile(request.resource.data)
-          && request.resource.data.inviteHash == get(roomDoc(roomId)).data.inviteHash;
+          && validMemberProfile(request.resource.data, uid)
+          && (
+            (
+              uid == request.auth.uid
+              && request.resource.data.inviteHash == get(roomDoc(roomId)).data.inviteHash
+            )
+            || (
+              isOwner(roomId)
+              && get(roomDoc(roomId)).data.mode == 'dm'
+            )
+          );
 
         allow update: if signedIn()
           && uid == request.auth.uid
           && isMember(roomId)
-          && validProfile(request.resource.data)
-          && request.resource.data.inviteHash == resource.data.inviteHash;
+          && validMemberProfile(request.resource.data, request.auth.uid);
 
         allow delete: if signedIn() && uid == request.auth.uid;
       }

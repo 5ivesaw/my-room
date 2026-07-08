@@ -22,6 +22,8 @@ const LS_LAST_ROOM = 'veil.lastRoom.v1';
 const LS_AVATAR = 'veil.avatar.v1';
 const LS_SOUND = 'veil.sound.v1';
 const LS_BROWSER_NOTICES = 'veil.browserNotices.v1';
+const LS_PRIVATE_KEY = 'veil.privateKey.v1';
+const LS_PUBLIC_KEY = 'veil.publicKey.v1';
 const AVATAR_COLORS = ['#101626', '#7c5cff', '#25d0ff', '#50f2a0', '#ffcb6b', '#ff4d6d', '#ffffff', '#ff8bd2'];
 const MAX_ATTACHMENT_BYTES = 260 * 1024;
 const MAX_ENCRYPTED_TEXT = 1600;
@@ -51,6 +53,10 @@ let firstMessageSnapshot = true;
 let audioContext = null;
 let selectedAvatarColor = 1;
 let lastRenderHadComposerFocus = false;
+let privateKey = null;
+let publicKeyJwk = null;
+let unsubFriendRequests = null;
+let unsubFriends = null;
 
 const state = {
   status: 'setup',
@@ -62,7 +68,10 @@ const state = {
   picker: null,
   replyTo: null,
   members: [],
-  messages: []
+  messages: [],
+  friendRequests: [],
+  friends: [],
+  friendInput: ''
 };
 
 function escapeHtml(value) {
@@ -108,6 +117,7 @@ function saveAvatar(value) {
   state.avatar = normalizeAvatar(value);
   localStorage.setItem(LS_AVATAR, state.avatar);
   syncMemberProfile().catch(() => {});
+  syncPublicProfile().catch(() => {});
 }
 
 function renderAvatar(code = state.avatar, className = '') {
@@ -153,6 +163,102 @@ async function deriveRoomKey(secret, saltBase64) {
     false,
     ['encrypt', 'decrypt']
   );
+}
+
+async function ensureIdentityKeys() {
+  const savedPrivate = localStorage.getItem(LS_PRIVATE_KEY);
+  const savedPublic = localStorage.getItem(LS_PUBLIC_KEY);
+  if (savedPrivate && savedPublic) {
+    privateKey = await crypto.subtle.importKey(
+      'jwk',
+      JSON.parse(savedPrivate),
+      { name: 'RSA-OAEP', hash: 'SHA-256' },
+      false,
+      ['decrypt']
+    );
+    publicKeyJwk = JSON.parse(savedPublic);
+    return;
+  }
+
+  const pair = await crypto.subtle.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256'
+    },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  privateKey = pair.privateKey;
+  publicKeyJwk = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+  localStorage.setItem(LS_PRIVATE_KEY, JSON.stringify(privateJwk));
+  localStorage.setItem(LS_PUBLIC_KEY, JSON.stringify(publicKeyJwk));
+}
+
+async function importFriendPublicKey(jwk) {
+  return crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['encrypt']
+  );
+}
+
+async function encryptDmSecretFor(publicJwk, secretBase64) {
+  const key = await importFriendPublicKey(publicJwk);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    key,
+    new TextEncoder().encode(secretBase64)
+  );
+  return bytesToBase64(new Uint8Array(encrypted));
+}
+
+async function decryptDmSecret(encryptedSecret) {
+  if (!privateKey) throw new Error('This browser lost its private contact key. Re-add this device as a friend.');
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    base64ToBytes(encryptedSecret)
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
+async function importDmAesKey(secretBase64) {
+  return crypto.subtle.importKey(
+    'raw',
+    base64ToBytes(secretBase64),
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+function safeUid(value) {
+  return String(value || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+}
+
+function dmRoomIdFor(a, b) {
+  return `dm-${[safeUid(a), safeUid(b)].sort().join('-')}`;
+}
+
+function userPath(uid = user?.uid) {
+  return doc(db, 'users', uid);
+}
+
+function friendRequestPath(targetUid, fromUid = user?.uid) {
+  return doc(db, 'users', targetUid, 'requests', fromUid);
+}
+
+function friendPath(ownerUid, friendUid) {
+  return doc(db, 'users', ownerUid, 'friends', friendUid);
+}
+
+function dmKeyPath(roomId, uid = user?.uid) {
+  return doc(db, 'rooms', roomId, 'keys', uid);
 }
 
 async function encryptPayload(payloadData = {}) {
@@ -360,6 +466,9 @@ async function initFirebase() {
     onAuthStateChanged(auth, async (nextUser) => {
       user = nextUser;
       if (user) {
+        await ensureIdentityKeys();
+        await syncPublicProfile();
+        subscribeSocial();
         state.status = 'ready';
         render();
       }
@@ -407,6 +516,151 @@ async function syncMemberProfile() {
     avatar: state.avatar,
     lastSeenAt: serverTimestamp()
   }, { merge: true });
+}
+
+async function syncPublicProfile() {
+  if (!user || !publicKeyJwk) return;
+  await setDoc(userPath(user.uid), {
+    uid: user.uid,
+    displayName: state.displayName,
+    avatar: state.avatar,
+    publicKey: publicKeyJwk,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+function subscribeSocial() {
+  if (!user || !db) return;
+  if (unsubFriendRequests) unsubFriendRequests();
+  if (unsubFriends) unsubFriends();
+
+  unsubFriendRequests = onSnapshot(collection(db, 'users', user.uid, 'requests'), (snapshot) => {
+    state.friendRequests = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+    if (state.status !== 'chat') render();
+  }, (error) => toast(`Friend requests blocked: ${error.message}`));
+
+  unsubFriends = onSnapshot(collection(db, 'users', user.uid, 'friends'), (snapshot) => {
+    state.friends = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+    if (state.status !== 'chat') render();
+  }, (error) => toast(`Friends blocked: ${error.message}`));
+}
+
+async function sendFriendRequest(targetValue) {
+  if (!user) return;
+  const targetUid = extractFriendUid(targetValue);
+  if (!targetUid || targetUid === user.uid) {
+    toast('Paste a friend link or code from another person.');
+    return;
+  }
+
+  try {
+    await syncPublicProfile();
+    const target = await getDoc(userPath(targetUid));
+    if (!target.exists()) {
+      toast('Friend code not found. Ask them to open Veil Chat once first.');
+      return;
+    }
+    await setDoc(friendRequestPath(targetUid, user.uid), {
+      fromUid: user.uid,
+      displayName: state.displayName,
+      avatar: state.avatar,
+      createdAt: serverTimestamp()
+    });
+    toast('Friend request sent inside Veil.');
+  } catch (error) {
+    toast(`Friend request failed: ${error.message}`);
+  }
+}
+
+async function acceptFriendRequest(fromUid) {
+  if (!user) return;
+  try {
+    await syncPublicProfile();
+    const [fromSnap, meSnap] = await Promise.all([getDoc(userPath(fromUid)), getDoc(userPath(user.uid))]);
+    if (!fromSnap.exists() || !meSnap.exists()) {
+      toast('Could not load friend profile.');
+      return;
+    }
+
+    const fromData = fromSnap.data();
+    const meData = meSnap.data();
+    const dmRoomId = dmRoomIdFor(user.uid, fromUid);
+    const secretBase64 = bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
+    const [secretForMe, secretForFriend] = await Promise.all([
+      encryptDmSecretFor(meData.publicKey, secretBase64),
+      encryptDmSecretFor(fromData.publicKey, secretBase64)
+    ]);
+
+    await setDoc(roomPath(dmRoomId), {
+      mode: 'dm',
+      createdBy: user.uid,
+      createdAt: serverTimestamp(),
+      label: `DM: ${state.displayName} / ${fromData.displayName || 'Friend'}`,
+      ttlHours: 168
+    }, { merge: true });
+
+    await Promise.all([
+      setDoc(dmKeyPath(dmRoomId, user.uid), { uid: user.uid, encryptedSecret: secretForMe, createdAt: serverTimestamp() }),
+      setDoc(dmKeyPath(dmRoomId, fromUid), { uid: fromUid, encryptedSecret: secretForFriend, createdAt: serverTimestamp() }),
+      setDoc(memberPath(dmRoomId, user.uid), { uid: user.uid, displayName: state.displayName, avatar: state.avatar, joinedAt: serverTimestamp(), lastSeenAt: serverTimestamp() }, { merge: true }),
+      setDoc(memberPath(dmRoomId, fromUid), { uid: fromUid, displayName: fromData.displayName || 'Friend', avatar: fromData.avatar || randomAvatar(), joinedAt: serverTimestamp(), lastSeenAt: serverTimestamp() }, { merge: true }),
+      setDoc(friendPath(user.uid, fromUid), { uid: fromUid, displayName: fromData.displayName || 'Friend', avatar: fromData.avatar || '', dmRoomId, createdAt: serverTimestamp() }, { merge: true }),
+      setDoc(friendPath(fromUid, user.uid), { uid: user.uid, displayName: state.displayName, avatar: state.avatar, dmRoomId, createdAt: serverTimestamp() }, { merge: true }),
+      deleteDoc(friendRequestPath(user.uid, fromUid))
+    ]);
+    toast('Friend added. DM is ready.');
+    await openDmRoom({ uid: fromUid, displayName: fromData.displayName || 'Friend', avatar: fromData.avatar || '', dmRoomId });
+  } catch (error) {
+    toast(`Accept failed: ${error.message}`);
+  }
+}
+
+async function openDmRoom(friend) {
+  if (!user || !friend?.dmRoomId) return;
+  setStatus('joining');
+  try {
+    const keySnap = await getDoc(dmKeyPath(friend.dmRoomId, user.uid));
+    if (!keySnap.exists()) throw new Error('DM key missing. Send/accept a new friend request.');
+    const secretBase64 = await decryptDmSecret(keySnap.data().encryptedSecret);
+    cryptoKey = await importDmAesKey(secretBase64);
+    roomSecret = '[automatic-dm-key]';
+    room = { id: friend.dmRoomId, label: friend.displayName || 'Direct Message', ttlHours: 168, mode: 'dm' };
+    localStorage.setItem(LS_LAST_ROOM, room.id);
+    await syncMemberProfile();
+    subscribeRoom();
+    setStatus('chat');
+    requestAnimationFrame(focusComposer);
+  } catch (error) {
+    setStatus('ready');
+    toast(`Open DM failed: ${error.message}`);
+  }
+}
+
+async function removeFriend(friendUid) {
+  if (!user) return;
+  try {
+    await deleteDoc(friendPath(user.uid, friendUid));
+    toast('Friend removed from this device.');
+  } catch (error) {
+    toast(`Remove failed: ${error.message}`);
+  }
+}
+
+function extractFriendUid(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const paramMatch = raw.match(/[?&]friend=([^&#]+)/i);
+  if (paramMatch) return safeUid(decodeURIComponent(paramMatch[1]));
+  try {
+    const url = new URL(raw);
+    return safeUid(url.searchParams.get('friend') || raw);
+  } catch {
+    return safeUid(raw.replace(/^veil:/i, ''));
+  }
+}
+
+function myFriendLink() {
+  return `${location.origin}${location.pathname}?friend=${encodeURIComponent(user?.uid || '')}`;
 }
 
 async function joinRoom(id, secret, label = '') {
@@ -696,6 +950,7 @@ function render(detail = '') {
 
   const params = new URLSearchParams(location.search);
   const lastRoom = params.get('room') || localStorage.getItem(LS_LAST_ROOM) || '';
+  const friendPrefill = params.get('friend') || state.friendInput || '';
   appRoot.innerHTML = `
     <section class="home-screen">
       <aside class="brand-panel">
@@ -726,6 +981,8 @@ function render(detail = '') {
           <button id="soundToggle" type="button">Sound: ${state.soundEnabled ? 'On' : 'Off'}</button>
           <button id="browserNoticeToggle" type="button">System notifications: ${state.browserNotices ? 'On' : 'Off'}</button>
         </div>
+
+        ${renderSocialPanel(friendPrefill)}
 
         <div class="split">
           <form id="createRoomForm" class="glass-form">
@@ -764,6 +1021,7 @@ function render(detail = '') {
   `;
 
   bindSharedControls();
+  bindSocialControls();
 
   document.getElementById('createRoomForm')?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -779,6 +1037,52 @@ function render(detail = '') {
     const data = new FormData(event.currentTarget);
     await joinRoom(data.get('roomId'), data.get('secret'));
   });
+}
+
+function renderSocialPanel(friendPrefill = '') {
+  const link = user ? myFriendLink() : '';
+  const requests = state.friendRequests.length
+    ? state.friendRequests.map((request) => `
+        <article class="social-card request-card">
+          ${renderAvatar(request.avatar || randomAvatar(), 'mini')}
+          <div><strong>${escapeHtml(request.displayName || 'Friend')}</strong><span>wants to message you</span></div>
+          <button type="button" data-accept-friend="${escapeHtml(request.fromUid || request.id)}">Accept</button>
+          <button type="button" data-decline-friend="${escapeHtml(request.fromUid || request.id)}">Ignore</button>
+        </article>
+      `).join('')
+    : '<p class="social-empty">No pending requests.</p>';
+
+  const friends = state.friends.length
+    ? state.friends.map((friend) => `
+        <article class="social-card friend-card">
+          ${renderAvatar(friend.avatar || randomAvatar(), 'mini')}
+          <div><strong>${escapeHtml(friend.displayName || 'Friend')}</strong><span>Direct message ready</span></div>
+          <button type="button" data-open-dm="${escapeHtml(friend.uid || friend.id)}">Message</button>
+          <button type="button" data-remove-friend="${escapeHtml(friend.uid || friend.id)}">Remove</button>
+        </article>
+      `).join('')
+    : '<p class="social-empty">No friends yet. Share your contact link or paste theirs.</p>';
+
+  return `
+    <section class="social-panel">
+      <div class="social-head">
+        <div>
+          <h2>Friends & DMs</h2>
+          <p>Share one link once, accept requests here, then message without room IDs or group setup.</p>
+        </div>
+        <button id="copyFriendLink" type="button">Copy my contact link</button>
+      </div>
+      <div class="contact-code"><span>My code</span><code>${escapeHtml(user?.uid || 'loading')}</code></div>
+      <form id="friendRequestForm" class="friend-form">
+        <input name="friendCode" value="${escapeHtml(friendPrefill)}" placeholder="Paste friend link or code">
+        <button type="submit">Send request</button>
+      </form>
+      <div class="social-grid">
+        <section><h3>Requests</h3>${requests}</section>
+        <section><h3>Direct messages</h3>${friends}</section>
+      </div>
+    </section>
+  `;
 }
 
 function renderAvatarEditor() {
@@ -1011,11 +1315,52 @@ function renderGifPicker() {
   return `<section class="picker-panel gif-panel">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</section>`;
 }
 
+function bindSocialControls() {
+  document.getElementById('copyFriendLink')?.addEventListener('click', async () => {
+    await navigator.clipboard?.writeText(myFriendLink());
+    toast('Copied your contact link. They can request you from inside Veil.');
+  });
+
+  document.getElementById('friendRequestForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const value = new FormData(event.currentTarget).get('friendCode');
+    state.friendInput = String(value || '');
+    await sendFriendRequest(value);
+  });
+
+  document.querySelectorAll('[data-accept-friend]').forEach((button) => {
+    button.addEventListener('click', () => acceptFriendRequest(button.dataset.acceptFriend));
+  });
+
+  document.querySelectorAll('[data-decline-friend]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await deleteDoc(friendRequestPath(user.uid, button.dataset.declineFriend));
+        toast('Request ignored.');
+      } catch (error) {
+        toast(`Ignore failed: ${error.message}`);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-open-dm]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const friend = state.friends.find((item) => (item.uid || item.id) === button.dataset.openDm);
+      openDmRoom(friend);
+    });
+  });
+
+  document.querySelectorAll('[data-remove-friend]').forEach((button) => {
+    button.addEventListener('click', () => removeFriend(button.dataset.removeFriend));
+  });
+}
+
 function bindSharedControls() {
   document.getElementById('displayName')?.addEventListener('input', (event) => {
     state.displayName = event.target.value.trim().slice(0, 24) || 'Friend';
     localStorage.setItem(LS_NAME, state.displayName);
     syncMemberProfile().catch(() => {});
+    syncPublicProfile().catch(() => {});
   });
   document.getElementById('toggleAvatarEditor')?.addEventListener('click', () => {
     state.avatarEditorOpen = !state.avatarEditorOpen;
