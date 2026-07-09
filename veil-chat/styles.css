@@ -1524,3 +1524,220 @@ body,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* v60: hard-lock chat composer and make pickers real popover windows */
+html,
+body,
+.veil-root {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden !important;
+}
+
+.chat-shell {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden !important;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 10px 108px;
+}
+
+.chat-shell.has-reply {
+  padding-bottom: 150px;
+}
+
+.chat-topbar,
+.member-strip {
+  position: relative;
+  z-index: 4;
+  flex: none;
+}
+
+.message-list {
+  min-height: 0;
+  height: auto;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  padding: 10px 10px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.composer {
+  position: fixed !important;
+  left: 10px;
+  right: 10px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 80;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: min(38dvh, 220px);
+  overflow: visible;
+  border-radius: 22px;
+  padding: 10px;
+  box-shadow:
+    0 -18px 70px rgba(0,0,0,.48),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.composer textarea {
+  min-height: 42px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.composer-tools::-webkit-scrollbar { display: none; }
+
+.composer-tools button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.composer-tools span {
+  min-width: max-content;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.picker-panel.picker-window {
+  position: fixed !important;
+  left: 18px;
+  right: 18px;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 96px);
+  z-index: 90;
+  max-height: min(390px, 52dvh);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,.20);
+  background: rgba(7, 10, 18, .97);
+  backdrop-filter: blur(28px) saturate(150%);
+  box-shadow:
+    0 26px 100px rgba(0,0,0,.58),
+    inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+.chat-shell.has-reply .picker-panel.picker-window {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 140px);
+}
+
+.picker-window header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 8px;
+  background: linear-gradient(180deg, rgba(7,10,18,.98), rgba(7,10,18,.72));
+}
+
+.picker-window header button {
+  padding: 7px 11px;
+  border-radius: 999px;
+}
+
+.emoji-grid,
+.gif-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.emoji-grid {
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+}
+
+.gif-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.gif-url-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.gif-url-form button {
+  border: 0;
+  color: #061018;
+  font-weight: 900;
+  background: linear-gradient(135deg, #7be3ff, #d8f06f);
+}
+
+.gif-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  .chat-shell {
+    padding: max(8px, env(safe-area-inset-top)) 8px 112px;
+    gap: 8px;
+  }
+
+  .chat-shell.has-reply {
+    padding-bottom: 152px;
+  }
+
+  .composer {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    max-height: min(42dvh, 230px);
+  }
+
+  .composer-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .composer button {
+    width: auto;
+  }
+
+  .picker-panel.picker-window {
+    left: 8px;
+    right: 8px;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 104px);
+    max-height: min(380px, 50dvh);
+  }
+
+  .chat-shell.has-reply .picker-panel.picker-window {
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 146px);
+  }
+
+  .gif-url-form {
+    grid-template-columns: 1fr;
+  }
+}

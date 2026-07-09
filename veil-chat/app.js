@@ -1114,7 +1114,7 @@ function renderChat() {
   const inviteLink = `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}`;
   const memberNames = state.members.map((member) => escapeHtml(member.displayName || 'Friend')).join(', ') || 'Only you';
   appRoot.innerHTML = `
-    <section class="chat-shell">
+    <section class="chat-shell ${state.picker ? 'has-picker' : ''} ${state.replyTo ? 'has-reply' : ''}">
       <header class="chat-topbar">
         <div class="room-title-wrap">
           ${renderAvatar(state.avatar, 'mini')}
@@ -1158,16 +1158,17 @@ function renderChat() {
         `).join('') : `<div class="empty-state">No messages yet. Paste an image, drop a file, send a GIF, or type the first encrypted message.</div>`}
       </section>
 
+      ${state.picker === 'emoji' ? renderEmojiPicker() : ''}
+      ${state.picker === 'gif' ? renderGifPicker() : ''}
+
       <form id="composer" class="composer ${state.picker ? 'picker-open' : ''}">
         ${state.replyTo ? `<div class="composer-reply"><span>Replying to <b>${escapeHtml(state.replyTo.name || 'Friend')}</b>: ${escapeHtml(String(state.replyTo.text || '').slice(0, 80))}</span><button type="button" id="clearReply">×</button></div>` : ''}
         <div class="composer-tools">
           <button type="button" id="emojiButton" class="${state.picker === 'emoji' ? 'active' : ''}">Emoji</button>
           <button type="button" id="gifButton" class="${state.picker === 'gif' ? 'active' : ''}">GIF</button>
           <button type="button" id="attachButton">Attach</button>
-          <span>Paste images/files or YouTube links</span>
+          <span>Paste images/files, GIF URLs, or YouTube links</span>
         </div>
-        ${state.picker === 'emoji' ? renderEmojiPicker() : ''}
-        ${state.picker === 'gif' ? renderGifPicker() : ''}
         <div class="composer-row">
           <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="Type encrypted message, paste image, or drop a file..." autocomplete="off">${escapeHtml(state.draft)}</textarea>
           <button type="submit">Send</button>
@@ -1241,6 +1242,17 @@ function renderChat() {
       state.picker = null;
       renderChat();
     });
+  });
+
+  document.getElementById('gifUrlForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = event.currentTarget.elements.gifUrl;
+    const url = String(input?.value || '').trim();
+    if (!url) return;
+    state.picker = null;
+    await sendMessage(url);
+    state.draft = area?.value || state.draft;
+    renderChat();
   });
 
   document.getElementById('attachButton')?.addEventListener('click', () => fileInput?.click());
@@ -1333,7 +1345,15 @@ function renderEmojiPicker() {
 }
 
 function renderGifPicker() {
-  return `<section class="picker-panel picker-window gif-panel" aria-label="GIF picker"><header><strong>GIFs / Stickers</strong><button type="button" data-picker-close>Close</button></header><div class="gif-grid">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</div></section>`;
+  return `<section class="picker-panel picker-window gif-panel" aria-label="GIF picker">
+    <header><strong>GIFs / Stickers</strong><button type="button" data-picker-close>Close</button></header>
+    <form id="gifUrlForm" class="gif-url-form">
+      <input name="gifUrl" placeholder="Paste direct GIF/image URL or YouTube link" autocomplete="off">
+      <button type="submit">Send link</button>
+    </form>
+    <div class="gif-grid">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</div>
+    <p class="gif-note">Tenor API search is no longer reliable for third-party apps; paste direct GIF links here.</p>
+  </section>`;
 }
 
 function bindSocialControls() {
