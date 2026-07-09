@@ -66,6 +66,7 @@ const state = {
   browserNotices: localStorage.getItem(LS_BROWSER_NOTICES) === 'on',
   avatarEditorOpen: false,
   picker: null,
+  draft: '',
   replyTo: null,
   members: [],
   messages: [],
@@ -1157,18 +1158,18 @@ function renderChat() {
         `).join('') : `<div class="empty-state">No messages yet. Paste an image, drop a file, send a GIF, or type the first encrypted message.</div>`}
       </section>
 
-      <form id="composer" class="composer">
+      <form id="composer" class="composer ${state.picker ? 'picker-open' : ''}">
         ${state.replyTo ? `<div class="composer-reply"><span>Replying to <b>${escapeHtml(state.replyTo.name || 'Friend')}</b>: ${escapeHtml(String(state.replyTo.text || '').slice(0, 80))}</span><button type="button" id="clearReply">×</button></div>` : ''}
         <div class="composer-tools">
-          <button type="button" id="emojiButton">Emoji</button>
-          <button type="button" id="gifButton">GIF</button>
+          <button type="button" id="emojiButton" class="${state.picker === 'emoji' ? 'active' : ''}">Emoji</button>
+          <button type="button" id="gifButton" class="${state.picker === 'gif' ? 'active' : ''}">GIF</button>
           <button type="button" id="attachButton">Attach</button>
           <span>Paste images/files or YouTube links</span>
         </div>
         ${state.picker === 'emoji' ? renderEmojiPicker() : ''}
         ${state.picker === 'gif' ? renderGifPicker() : ''}
         <div class="composer-row">
-          <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="Type encrypted message, paste image, or drop a file..." autocomplete="off"></textarea>
+          <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="Type encrypted message, paste image, or drop a file..." autocomplete="off">${escapeHtml(state.draft)}</textarea>
           <button type="submit">Send</button>
         </div>
         <input id="fileInput" type="file" hidden>
@@ -1223,13 +1224,23 @@ function renderChat() {
   });
 
   document.getElementById('emojiButton')?.addEventListener('click', () => {
+    state.draft = area?.value || state.draft;
     state.picker = state.picker === 'emoji' ? null : 'emoji';
     renderChat();
   });
 
   document.getElementById('gifButton')?.addEventListener('click', () => {
+    state.draft = area?.value || state.draft;
     state.picker = state.picker === 'gif' ? null : 'gif';
     renderChat();
+  });
+
+  document.querySelectorAll('[data-picker-close]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.draft = area?.value || state.draft;
+      state.picker = null;
+      renderChat();
+    });
   });
 
   document.getElementById('attachButton')?.addEventListener('click', () => fileInput?.click());
@@ -1238,12 +1249,14 @@ function renderChat() {
     fileInput.value = '';
     await sendAttachment(file, area?.value || '');
     if (area) area.value = '';
+    state.draft = '';
     renderChat();
   });
 
   document.querySelectorAll('[data-emoji]').forEach((button) => {
     button.addEventListener('click', () => {
       insertAtCursor(area, button.dataset.emoji || '');
+      state.draft = area?.value || state.draft;
       autoGrow(area);
       focusComposer();
     });
@@ -1263,6 +1276,7 @@ function renderChat() {
     unlockAudio();
     const value = area.value;
     area.value = '';
+    state.draft = '';
     autoGrow(area);
     await sendMessage(value);
     area.focus({ preventScroll: true });
@@ -1279,6 +1293,7 @@ function renderChat() {
     const file = event.dataTransfer?.files?.[0];
     await sendAttachment(file, area?.value || '');
     if (area) area.value = '';
+    state.draft = '';
     renderChat();
   });
 
@@ -1288,31 +1303,37 @@ function renderChat() {
     event.preventDefault();
     await sendAttachment(file, area.value || '');
     area.value = '';
+    state.draft = '';
     renderChat();
   });
 
-  area?.addEventListener('input', () => autoGrow(area));
+  area?.addEventListener('input', () => {
+    state.draft = area.value;
+    autoGrow(area);
+  });
   area?.addEventListener('keydown', async (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       const value = area.value;
       area.value = '';
+      state.draft = '';
       autoGrow(area);
       await sendMessage(value);
       area.focus({ preventScroll: true });
     }
   });
 
+  if (area) autoGrow(area);
   scrollChatBottom();
   if (lastRenderHadComposerFocus || window.innerWidth > 820) requestAnimationFrame(focusComposer);
 }
 
 function renderEmojiPicker() {
-  return `<section class="picker-panel emoji-panel">${EMOJI_SET.map((emoji) => `<button type="button" data-emoji="${escapeHtml(emoji)}">${escapeHtml(emoji)}</button>`).join('')}</section>`;
+  return `<section class="picker-panel picker-window emoji-panel" aria-label="Emoji picker"><header><strong>Emoji</strong><button type="button" data-picker-close>Close</button></header><div class="emoji-grid">${EMOJI_SET.map((emoji) => `<button type="button" data-emoji="${escapeHtml(emoji)}">${escapeHtml(emoji)}</button>`).join('')}</div></section>`;
 }
 
 function renderGifPicker() {
-  return `<section class="picker-panel gif-panel">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</section>`;
+  return `<section class="picker-panel picker-window gif-panel" aria-label="GIF picker"><header><strong>GIFs / Stickers</strong><button type="button" data-picker-close>Close</button></header><div class="gif-grid">${GIF_PRESETS.map((gif) => `<button type="button" class="gif-tile gif-${gif.id}" data-gif="${gif.id}"><b>${escapeHtml(gif.emoji)}</b><span>${escapeHtml(gif.label)}</span></button>`).join('')}</div></section>`;
 }
 
 function bindSocialControls() {
