@@ -1,16 +1,18 @@
 import * as THREE from 'three';
 import { createWorld } from './world.js?v=64';
 import { Player } from './player.js?v=64';
-import { InteractionSystem } from './interactions.js?v=52';
+import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
 import { startKingdomPresence } from './kingdom-presence.js?v=2';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
 const QUALITY_PROFILES = {
-    performance: { pixelRatio: 0.72 },
-    balanced: { pixelRatio: 1.0 },
-    quality: { pixelRatio: 1.25 }
+    // Conservative defaults for older integrated GPUs. The adaptive scaler
+    // changes only internal resolution, never movement or camera timing.
+    performance: { pixelRatio: 0.58, minPixelRatio: 0.42 },
+    balanced: { pixelRatio: 0.82, minPixelRatio: 0.56 },
+    quality: { pixelRatio: 1.0, minPixelRatio: 0.72 }
 };
 const DEFAULT_SETTINGS = {
     quality: 'performance',
@@ -19,10 +21,6 @@ const DEFAULT_SETTINGS = {
     fov: LOCKED_FOV,
     reducedMotion: false
 };
-
-const BED_WAKE_POSITION = new THREE.Vector3(-4.35, 1.5, -6.05);
-const BED_EXIT_POSITION = new THREE.Vector3(-2.96, 1.5, -5.92);
-const BED_WAKE_YAW = Math.PI;
 
 function sanitizeSettings(raw = {}) {
     const next = { ...DEFAULT_SETTINGS, ...raw };
@@ -54,15 +52,57 @@ function saveSettings() {
 const settings = loadSettings();
 
 // Setup Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({
+    antialias: false,
+    alpha: false,
+    depth: true,
+    stencil: false,
+    precision: 'mediump',
+    powerPreference: 'high-performance'
+});
+renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-function applyRenderScale() {
-    const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, profile.pixelRatio));
-}
-applyRenderScale();
 renderer.shadowMap.enabled = false;
+
+let activePixelRatio = 0.58;
+let adaptiveFrameMs = 16.7;
+let adaptiveTimer = 0;
+let adaptiveCooldown = 0;
+
+function targetPixelRatio() {
+    const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
+    return Math.min(window.devicePixelRatio || 1, profile.pixelRatio);
+}
+
+function applyRenderScale(nextRatio = targetPixelRatio()) {
+    const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
+    activePixelRatio = Math.max(profile.minPixelRatio, Math.min(targetPixelRatio(), nextRatio));
+    renderer.setPixelRatio(activePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+}
+
+function updateAdaptiveResolution(dt) {
+    adaptiveFrameMs += ((dt * 1000) - adaptiveFrameMs) * 0.045;
+    adaptiveTimer += dt;
+    adaptiveCooldown = Math.max(0, adaptiveCooldown - dt);
+    if (adaptiveTimer < 1.25 || adaptiveCooldown > 0) return;
+    adaptiveTimer = 0;
+
+    const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
+    const maxRatio = targetPixelRatio();
+    let next = activePixelRatio;
+    if (adaptiveFrameMs > 24.5 && activePixelRatio > profile.minPixelRatio + 0.01) {
+        next = Math.max(profile.minPixelRatio, activePixelRatio - 0.08);
+    } else if (adaptiveFrameMs < 17.4 && activePixelRatio < maxRatio - 0.01) {
+        next = Math.min(maxRatio, activePixelRatio + 0.04);
+    }
+    if (Math.abs(next - activePixelRatio) >= 0.01) {
+        applyRenderScale(next);
+        adaptiveCooldown = 1.8;
+    }
+}
+
+applyRenderScale();
 document.getElementById('game-container').appendChild(renderer.domElement);
 
 // Setup Scene
@@ -77,6 +117,8 @@ const cullSphere = new THREE.Sphere();
 const cullCenter = new THREE.Vector3();
 const cameraWorldPos = new THREE.Vector3();
 let cullTimer = 0;
+let interactionTimer = 0;
+let worldUpdateAccumulator = 0;
 
 function applyCameraSettings() {
     camera.fov = settings.fov;
@@ -432,8 +474,8 @@ function unlockFromSpecialStates() {
 
 function wakeFromBed(message = 'You wake back up in bed.') {
     unlockFromSpecialStates();
-    player.yawObject.position.copy(BED_WAKE_POSITION);
-    player.yawObject.rotation.y = BED_WAKE_YAW;
+    player.yawObject.position.set(-2.75, 1.5, -0.45);
+    player.yawObject.rotation.y = 0.35;
     player.pitchObject.rotation.x = -Math.PI / 2;
     player.allowLook = false;
     isWakingUp = true;
@@ -530,7 +572,7 @@ function onResize() {
 
     camera.aspect = window.innerWidth / window.innerHeight;
     applyCameraSettings();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
     applyRenderScale();
     updateMobileControls();
 }
@@ -600,13 +642,19 @@ function updateMobileMoveState() {
     player.moveRight = x > 0.22;
 }
 
-function updateMobileControls() {
+let lastMobileUiState = '';
+function updateMobileControls(force = false) {
     if (!mobileInput.enabled || !mobileControls) return;
     const active = hasStarted && !document.body.classList.contains('pc-open');
+    const special = active && ((isSitting && sitAnimPhase === 'seated') || (isHanging && hangAnimPhase === 'hanging'));
+    const piano = active && isSittingPiano && sitAnimPhase === 'seated';
+    const state = `${active ? 1 : 0}${special ? 1 : 0}${piano ? 1 : 0}`;
+    if (!force && state === lastMobileUiState) return;
+    lastMobileUiState = state;
     mobileControls.classList.toggle('hidden', !active);
-    document.body.classList.toggle('mobile-special', active && ((isSitting && sitAnimPhase === 'seated') || (isHanging && hangAnimPhase === 'hanging')));
-    document.body.classList.toggle('mobile-piano-mode', active && isSittingPiano && sitAnimPhase === 'seated');
-    if (mobilePiano) mobilePiano.classList.toggle('hidden', !(active && isSittingPiano && sitAnimPhase === 'seated'));
+    document.body.classList.toggle('mobile-special', special);
+    document.body.classList.toggle('mobile-piano-mode', piano);
+    if (mobilePiano) mobilePiano.classList.toggle('hidden', !piano);
 }
 
 function mobileScreenPoint(event) {
@@ -1284,7 +1332,7 @@ window.render_game_to_text = renderGameToText;
 
 function updateVisibilityCulling(force = false) {
     if (!worldData || !worldData.cullables || !worldData.cullables.length) return;
-    if (!force && cullTimer < 0.08) return;
+    if (!force && cullTimer < 0.20) return;
     cullTimer = 0;
 
     camera.updateMatrixWorld();
@@ -1307,6 +1355,9 @@ function updateVisibilityCulling(force = false) {
 function stepGame(dt) {
     if (!hasStarted) return;
     cullTimer += dt;
+    interactionTimer += dt;
+    updateAdaptiveResolution(dt);
+    player.updateLook();
 
     if (document.body.classList.contains('pc-open')) {
         if (worldData && worldData.updatePC) worldData.updatePC(dt);
@@ -1315,11 +1366,11 @@ function stepGame(dt) {
 
     if (isWakingUp) {
         player.pitchObject.rotation.x += (0 - player.pitchObject.rotation.x) * 2 * dt;
-        player.yawObject.position.lerp(BED_EXIT_POSITION, Math.min(1, dt * 2));
+        player.yawObject.position.x += (-0.4 - player.yawObject.position.x) * 2 * dt;
 
-        if (Math.abs(player.pitchObject.rotation.x) < 0.05 && player.yawObject.position.distanceToSquared(BED_EXIT_POSITION) < 0.004) {
+        if (Math.abs(player.pitchObject.rotation.x) < 0.05 && Math.abs(-0.4 - player.yawObject.position.x) < 0.05) {
             player.pitchObject.rotation.x = 0;
-            player.yawObject.position.copy(BED_EXIT_POSITION);
+            player.yawObject.position.x = -0.4;
             isWakingUp = false;
             player.allowLook = true; // Restore mouse look
         }
@@ -1344,13 +1395,22 @@ function stepGame(dt) {
 
     updateVisibilityCulling();
 
-    if ((player.isLocked || isSitting || isHanging) && interactions) {
+    if ((player.isLocked || isSitting || isHanging) && interactions && interactionTimer >= 0.055) {
+        interactionTimer = 0;
         interactions.update();
     }
 
+    // Keep movement/camera/rendering at the display refresh rate, but run
+    // secondary room animation at 30 Hz. This removes a large amount of CPU
+    // work without making first-person input feel delayed.
     if (worldData) {
-        for (const u of worldData.updatables) {
-            u.update(dt);
+        worldUpdateAccumulator += dt;
+        if (worldUpdateAccumulator >= 1 / 30) {
+            const worldDt = Math.min(worldUpdateAccumulator, 0.066);
+            worldUpdateAccumulator = 0;
+            for (const u of worldData.updatables) {
+                u.update(worldDt);
+            }
         }
     }
 
@@ -1367,7 +1427,18 @@ window.advanceTime = (ms) => {
 
 function animate() {
     requestAnimationFrame(animate);
-    stepGame(Math.min(clock.getDelta(), 0.05));
+    const dt = Math.min(clock.getDelta(), 0.05);
+    if (document.hidden) return;
+    stepGame(dt);
 }
+
+document.addEventListener('visibilitychange', () => {
+    clock.getDelta();
+    if (!document.hidden) {
+        adaptiveFrameMs = 16.7;
+        adaptiveTimer = 0;
+        worldUpdateAccumulator = 0;
+    }
+});
 
 animate();

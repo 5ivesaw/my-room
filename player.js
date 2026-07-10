@@ -11,8 +11,7 @@ export class Player {
         this.pitchObject.add(camera);
         
         this.yawObject = new THREE.Object3D();
-        this.yawObject.position.set(-4.35, 1.5, -6.05); // Start in the rear-left bed alcove
-        this.yawObject.rotation.y = Math.PI; // Face down the castle hall toward the entrance
+        this.yawObject.position.set(-2.75, 1.5, -0.45); // Start in bed
         this.yawObject.add(this.pitchObject);
         
         this.velocity = new THREE.Vector3();
@@ -26,6 +25,8 @@ export class Player {
         this.isLocked = false;
         this.allowLook = true;
         this.speed = 3.0; // Kinematic speed
+        this.pendingMouseX = 0;
+        this.pendingMouseY = 0;
         
         // Mouse look
         const onMouseMove = (event) => {
@@ -37,10 +38,9 @@ export class Player {
             // Ignore massive mouse delta jumps (often happens when locking pointer)
             if (Math.abs(movementX) > 300 || Math.abs(movementY) > 300) return;
             
-            // Restored mouse sensitivity
-            this.yawObject.rotation.y -= movementX * 0.002;
-            this.pitchObject.rotation.x -= movementY * 0.002;
-            this.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitchObject.rotation.x));
+            // Coalesce high-polling-rate mouse events and apply once per frame.
+            this.pendingMouseX += movementX;
+            this.pendingMouseY += movementY;
         };
         
         document.addEventListener('mousemove', onMouseMove, false);
@@ -79,6 +79,23 @@ export class Player {
         this.headBobTime = 0;
     }
     
+
+    updateLook() {
+        if (!this.isLocked || !this.allowLook || document.body.classList.contains('mobile-input')) {
+            this.pendingMouseX = 0;
+            this.pendingMouseY = 0;
+            return;
+        }
+        const maxDelta = 420;
+        const dx = Math.max(-maxDelta, Math.min(maxDelta, this.pendingMouseX));
+        const dy = Math.max(-maxDelta, Math.min(maxDelta, this.pendingMouseY));
+        this.pendingMouseX = 0;
+        this.pendingMouseY = 0;
+        this.yawObject.rotation.y -= dx * 0.002;
+        this.pitchObject.rotation.x -= dy * 0.002;
+        this.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitchObject.rotation.x));
+    }
+
     lock() {
         if (document.body.classList.contains('mobile-input')) {
             this.isLocked = true;
@@ -146,54 +163,33 @@ export class Player {
             this.stepTimer = 0.35; // so next step is almost immediate
         }
 
-        // Expanded 12 x 14 castle bounds. The previous -3.5..3.5 clamp was the
-        // reason the larger shell still felt like the original tiny room.
+        // Expanded castle bounds.
         newX = Math.max(-5.55, Math.min(5.55, newX));
-        newZ = Math.max(-7.55, Math.min(5.55, newZ));
+        newZ = Math.max(-7.45, Math.min(5.55, newZ));
 
         const resolveBox = (minX, maxX, minZ, maxZ) => {
             if (!(newX > minX && newX < maxX && newZ > minZ && newZ < maxZ)) return;
-
-            // Prefer the side the player came from. This prevents diagonal movement from
-            // snapping through large furniture and lets teleports/sitting remain stable.
-            if (prevX <= minX) { newX = minX; return; }
-            if (prevX >= maxX) { newX = maxX; return; }
-            if (prevZ <= minZ) { newZ = minZ; return; }
-            if (prevZ >= maxZ) { newZ = maxZ; return; }
-
-            const distances = [
-                { axis: 'x', value: minX, distance: Math.abs(newX - minX) },
-                { axis: 'x', value: maxX, distance: Math.abs(newX - maxX) },
-                { axis: 'z', value: minZ, distance: Math.abs(newZ - minZ) },
-                { axis: 'z', value: maxZ, distance: Math.abs(newZ - maxZ) }
-            ];
-            const nearest = distances.reduce((best, item) => item.distance < best.distance ? item : best);
-            if (nearest.axis === 'x') newX = nearest.value;
-            else newZ = nearest.value;
+            const toMinX = newX - minX;
+            const toMaxX = maxX - newX;
+            const toMinZ = newZ - minZ;
+            const toMaxZ = maxZ - newZ;
+            let nearest = toMinX;
+            let edge = 0;
+            if (toMaxX < nearest) { nearest = toMaxX; edge = 1; }
+            if (toMinZ < nearest) { nearest = toMinZ; edge = 2; }
+            if (toMaxZ < nearest) edge = 3;
+            if (edge === 0) newX = minX;
+            else if (edge === 1) newX = maxX;
+            else if (edge === 2) newZ = minZ;
+            else newZ = maxZ;
         };
 
-        if (moved) {
-            // Raised throne platform and its front steps.
-            resolveBox(-1.95, 1.95, -7.48, -3.55);
-
-            // Right-front PC workstation. The chair remains reachable from the entrance side.
-            resolveBox(2.68, 5.55, 2.72, 4.48);
-
-            // Left utility niche refrigerator. Its front and swinging door remain approachable.
-            resolveBox(-5.55, -4.82, 0.25, 1.25);
-
-            // Ominous entrance piano, now aligned along the left wall with the bench aisle-side.
-            resolveBox(-4.92, -3.74, 2.7, 5.5);
-
-            // Rear-left bed alcove.
-            resolveBox(-5.48, -3.22, -7.5, -4.48);
-
-            // Six freestanding arch columns framing the central hallway.
-            for (const z of [-4.18, -0.92, 2.35]) {
-                resolveBox(-2.72, -2.04, z - 0.34, z + 0.34);
-                resolveBox(2.04, 2.72, z - 0.34, z + 0.34);
-            }
-        }
+        // Raised throne, desk, fridge, piano and bed.
+        resolveBox(-2.15, 2.15, -7.45, -5.42);
+        resolveBox(2.62, 5.55, 2.72, 4.52);
+        resolveBox(-5.55, -4.78, 1.67, 2.72);
+        resolveBox(-5.55, -3.48, 2.72, 5.55);
+        resolveBox(-5.55, -3.58, -3.48, -0.28);
 
         this.yawObject.position.x = newX;
         this.yawObject.position.z = newZ;

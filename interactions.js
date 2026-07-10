@@ -7,8 +7,14 @@ export class InteractionSystem {
         this.promptElement = promptElement;
         this.specialActionHandler = specialActionHandler || (() => false);
         this.raycaster = new THREE.Raycaster();
+        this.raycaster.far = 3;
         this.center = new THREE.Vector2(0, 0);
         this.currentHover = null;
+        this.cachedInteractableCount = -1;
+        this.meshes = [];
+        this.meshLookup = new Map();
+        this.intersections = [];
+        this.refreshCache();
         
         this.lastInteractTime = 0;
         this.disableE = false;
@@ -27,6 +33,18 @@ export class InteractionSystem {
                 this.triggerInteraction('mouse');
             }
         });
+    }
+
+
+    refreshCache() {
+        this.cachedInteractableCount = this.interactables.length;
+        this.meshes.length = 0;
+        this.meshLookup.clear();
+        for (const interactable of this.interactables) {
+            if (!interactable || !interactable.mesh) continue;
+            this.meshes.push(interactable.mesh);
+            this.meshLookup.set(interactable.mesh, interactable);
+        }
     }
 
     getLabel(interactable) {
@@ -74,28 +92,31 @@ export class InteractionSystem {
     }
     
     update() {
+        if (this.cachedInteractableCount !== this.interactables.length) this.refreshCache();
         this.raycaster.setFromCamera(this.center, this.camera);
-        
-        const usableInteractables = this.interactables.filter((i) => this.canUse(i));
-        const meshes = usableInteractables.map(i => i.mesh);
-        const intersects = this.raycaster.intersectObjects(meshes, false);
-        
-        if (intersects.length > 0 && intersects[0].distance < 3) {
-            const object = intersects[0].object;
-            const interactable = usableInteractables.find(i => i.mesh === object);
-            
-            if (interactable) {
-                const promptText = this.getPromptText(interactable);
-                if (this.currentHover !== interactable || this.lastPromptText !== promptText) {
-                    this.currentHover = interactable;
-                    this.lastPromptText = promptText;
-                    this.promptElement.textContent = promptText;
-                    this.promptElement.classList.add('visible');
-                }
-                return;
+        this.intersections.length = 0;
+        this.raycaster.intersectObjects(this.meshes, false, this.intersections);
+
+        let interactable = null;
+        for (let i = 0; i < this.intersections.length; i++) {
+            const candidate = this.meshLookup.get(this.intersections[i].object);
+            if (this.canUse(candidate)) {
+                interactable = candidate;
+                break;
             }
         }
-        
+
+        if (interactable) {
+            const promptText = this.getPromptText(interactable);
+            if (this.currentHover !== interactable || this.lastPromptText !== promptText) {
+                this.currentHover = interactable;
+                this.lastPromptText = promptText;
+                this.promptElement.textContent = promptText;
+                this.promptElement.classList.add('visible');
+            }
+            return;
+        }
+
         if (this.currentHover) {
             this.currentHover = null;
             this.lastPromptText = '';
