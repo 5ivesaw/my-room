@@ -27,6 +27,8 @@ export class Player {
         this.speed = 3.0; // Kinematic speed
         this.pendingMouseX = 0;
         this.pendingMouseY = 0;
+        this.playerRadius = 0.32;
+        this.collisionBoxes = [];
         
         // Mouse look
         const onMouseMove = (event) => {
@@ -96,6 +98,18 @@ export class Player {
         this.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitchObject.rotation.x));
     }
 
+    setCollisionBoxes(boxes = []) {
+        this.collisionBoxes = boxes
+            .filter((box) => box && Number.isFinite(box.minX) && Number.isFinite(box.maxX) && Number.isFinite(box.minZ) && Number.isFinite(box.maxZ))
+            .map((box) => ({
+                id: String(box.id || 'obstacle'),
+                minX: Math.min(box.minX, box.maxX),
+                maxX: Math.max(box.minX, box.maxX),
+                minZ: Math.min(box.minZ, box.maxZ),
+                maxZ: Math.max(box.minZ, box.maxZ)
+            }));
+    }
+
     lock() {
         if (document.body.classList.contains('mobile-input')) {
             this.isLocked = true;
@@ -163,33 +177,71 @@ export class Player {
             this.stepTimer = 0.35; // so next step is almost immediate
         }
 
-        // Expanded castle bounds.
-        newX = Math.max(-5.55, Math.min(5.55, newX));
-        newZ = Math.max(-7.45, Math.min(5.55, newZ));
+        // Expanded castle bounds. The camera is treated as a circle on the X/Z
+        // plane. Obstacles are expanded by that radius (Minkowski sum), then X
+        // and Z are solved separately so movement slides cleanly along edges.
+        const roomMinX = -5.55;
+        const roomMaxX = 5.55;
+        const roomMinZ = -7.45;
+        const roomMaxZ = 5.55;
+        const radius = this.playerRadius;
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const targetX = clamp(newX, roomMinX, roomMaxX);
+        const targetZ = clamp(newZ, roomMinZ, roomMaxZ);
+        const boxes = this.collisionBoxes.length ? this.collisionBoxes : [
+            { id: 'throne', minX: -2.15, maxX: 2.15, minZ: -7.45, maxZ: -5.42 },
+            { id: 'desk', minX: 2.62, maxX: 5.55, minZ: 2.72, maxZ: 4.52 },
+            { id: 'fridge', minX: -5.55, maxX: -4.78, minZ: 1.67, maxZ: 2.72 },
+            { id: 'piano', minX: -5.55, maxX: -3.48, minZ: 2.72, maxZ: 5.55 },
+            { id: 'bed', minX: -5.55, maxX: -3.58, minZ: -3.48, maxZ: -0.28 }
+        ];
 
-        const resolveBox = (minX, maxX, minZ, maxZ) => {
-            if (!(newX > minX && newX < maxX && newZ > minZ && newZ < maxZ)) return;
-            const toMinX = newX - minX;
-            const toMaxX = maxX - newX;
-            const toMinZ = newZ - minZ;
-            const toMaxZ = maxZ - newZ;
-            let nearest = toMinX;
-            let edge = 0;
-            if (toMaxX < nearest) { nearest = toMaxX; edge = 1; }
-            if (toMinZ < nearest) { nearest = toMinZ; edge = 2; }
-            if (toMaxZ < nearest) edge = 3;
-            if (edge === 0) newX = minX;
-            else if (edge === 1) newX = maxX;
-            else if (edge === 2) newZ = minZ;
-            else newZ = maxZ;
-        };
+        const expanded = boxes.map((box) => ({
+            minX: box.minX - radius,
+            maxX: box.maxX + radius,
+            minZ: box.minZ - radius,
+            maxZ: box.maxZ + radius
+        }));
 
-        // Raised throne, desk, fridge, piano and bed.
-        resolveBox(-2.15, 2.15, -7.45, -5.42);
-        resolveBox(2.62, 5.55, 2.72, 4.52);
-        resolveBox(-5.55, -4.78, 1.67, 2.72);
-        resolveBox(-5.55, -3.48, 2.72, 5.55);
-        resolveBox(-5.55, -3.58, -3.48, -0.28);
+        // Resolve X first while keeping the previous Z. This prevents diagonal
+        // corner tunnelling and naturally produces wall sliding.
+        newX = targetX;
+        newZ = prevZ;
+        for (const box of expanded) {
+            if (newZ <= box.minZ || newZ >= box.maxZ) continue;
+            if (newX <= box.minX || newX >= box.maxX) continue;
+            if (prevX <= box.minX) newX = box.minX;
+            else if (prevX >= box.maxX) newX = box.maxX;
+            else newX = Math.abs(newX - box.minX) < Math.abs(box.maxX - newX) ? box.minX : box.maxX;
+        }
+
+        // Resolve Z with the already-safe X coordinate.
+        newZ = targetZ;
+        for (const box of expanded) {
+            if (newX <= box.minX || newX >= box.maxX) continue;
+            if (newZ <= box.minZ || newZ >= box.maxZ) continue;
+            if (prevZ <= box.minZ) newZ = box.minZ;
+            else if (prevZ >= box.maxZ) newZ = box.maxZ;
+            else newZ = Math.abs(newZ - box.minZ) < Math.abs(box.maxZ - newZ) ? box.minZ : box.maxZ;
+        }
+
+        // Final depenetration pass protects against teleports, resize glitches,
+        // or future furniture changes that place the player inside a footprint.
+        for (let pass = 0; pass < 2; pass++) {
+            for (const box of expanded) {
+                if (!(newX > box.minX && newX < box.maxX && newZ > box.minZ && newZ < box.maxZ)) continue;
+                const distances = [
+                    { axis: 'x', value: box.minX, distance: newX - box.minX },
+                    { axis: 'x', value: box.maxX, distance: box.maxX - newX },
+                    { axis: 'z', value: box.minZ, distance: newZ - box.minZ },
+                    { axis: 'z', value: box.maxZ, distance: box.maxZ - newZ }
+                ];
+                distances.sort((a, b) => a.distance - b.distance);
+                const nearest = distances[0];
+                if (nearest.axis === 'x') newX = nearest.value;
+                else newZ = nearest.value;
+            }
+        }
 
         this.yawObject.position.x = newX;
         this.yawObject.position.z = newZ;

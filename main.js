@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=64';
-import { Player } from './player.js?v=64';
+import { createWorld } from './world.js?v=65';
+import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
 import { startKingdomPresence } from './kingdom-presence.js?v=2';
@@ -1096,6 +1096,7 @@ enterBtn.addEventListener('click', async () => {
     }
 
     worldData = createWorld(scene, showMessage, audioCtx, sfx);
+    player.setCollisionBoxes(worldData.collisionBoxes || []);
     startKingdomPresence(applyKingdomPresence);
     applySettings();
     interactions = new InteractionSystem(camera, worldData.interactables, promptEl, handleSpecialAction);

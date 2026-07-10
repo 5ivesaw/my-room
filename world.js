@@ -14,6 +14,71 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const ROOM_DEPTH = ROOM_FRONT_Z - ROOM_BACK_Z;
     const ROOM_CENTER_Z = (ROOM_FRONT_Z + ROOM_BACK_Z) / 2;
 
+    // Deterministic 2D furniture layout solver. Every major floor object reserves
+    // an axis-aligned footprint plus breathing room. New objects can be added to
+    // this list without manually guessing whether they intersect another prop.
+    const LAYOUT_GAP = 0.22;
+    const layoutReservations = [
+        // Keep the central approach to the throne clear.
+        { id: 'royal-aisle', x: 0, z: 1.45, halfX: 1.28, halfZ: 4.18, fixed: true },
+        // Actual throne footprint, including its front steps and skull mound.
+        { id: 'throne', x: 0, z: -5.22, halfX: 3.22, halfZ: 2.18, fixed: true }
+    ];
+
+    const rectanglesOverlap = (a, b, gap = LAYOUT_GAP) =>
+        Math.abs(a.x - b.x) < a.halfX + b.halfX + gap &&
+        Math.abs(a.z - b.z) < a.halfZ + b.halfZ + gap;
+
+    function solveFloorPlacement(id, preferredX, preferredZ, halfX, halfZ) {
+        const edgePadding = 0.16;
+        const minX = -ROOM_HALF_X + halfX + edgePadding;
+        const maxX = ROOM_HALF_X - halfX - edgePadding;
+        const minZ = ROOM_BACK_Z + halfZ + edgePadding;
+        const maxZ = ROOM_FRONT_Z - halfZ - edgePadding;
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const baseX = clamp(preferredX, minX, maxX);
+        const baseZ = clamp(preferredZ, minZ, maxZ);
+        const step = 0.24;
+        let best = null;
+
+        // Search expanding square rings around the preferred location. The first
+        // valid point is the closest deterministic non-overlapping placement.
+        for (let ring = 0; ring <= 24 && !best; ring++) {
+            for (let ix = -ring; ix <= ring && !best; ix++) {
+                for (let iz = -ring; iz <= ring; iz++) {
+                    if (ring > 0 && Math.abs(ix) !== ring && Math.abs(iz) !== ring) continue;
+                    const candidate = {
+                        id,
+                        x: clamp(baseX + ix * step, minX, maxX),
+                        z: clamp(baseZ + iz * step, minZ, maxZ),
+                        halfX,
+                        halfZ,
+                        fixed: false
+                    };
+                    if (!layoutReservations.some((other) => rectanglesOverlap(candidate, other))) {
+                        best = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!best) {
+            // A safe fallback is still clamped inside the room and reported.
+            best = { id, x: baseX, z: baseZ, halfX, halfZ, fixed: false };
+            console.warn(`[layout] No collision-free slot found for ${id}; using clamped preferred position.`);
+        }
+        layoutReservations.push(best);
+        return best;
+    }
+
+    const floorLayout = {
+        bed: solveFloorPlacement('bed', -4.72, -1.72, 1.18, 1.66),
+        desk: solveFloorPlacement('desk', 4.18, 3.55, 1.68, 1.38),
+        fridge: solveFloorPlacement('fridge', -5.20, 1.72, 0.54, 0.58),
+        piano: solveFloorPlacement('piano', -4.34, 4.08, 0.72, 1.52)
+    };
+
     function trackCullable(object, radius = 1.5) {
         cullables.push({ object, radius });
         return object;
@@ -479,7 +544,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ BED ============
     const bedGroup = new THREE.Group();
-    bedGroup.position.set(-4.72, 0, -1.9);
+    bedGroup.position.set(floorLayout.bed.x, 0, floorLayout.bed.z);
 
     const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(2, 0.45, 3), woodMat);
     bedFrame.position.y = 0.25;
@@ -528,7 +593,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const radioGroup = new THREE.Group();
     // On the gaming desk beside the PC tower, not beside the bed.
     // Fridge top is around y=1.40, so the radio sits above it without clipping.
-    radioGroup.position.set(-5.45, 1.56, 2.15);
+    radioGroup.position.set(floorLayout.fridge.x, 1.56, floorLayout.fridge.z);
     radioGroup.rotation.y = 0;
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
@@ -677,7 +742,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ DESK ============
     const deskGroup = new THREE.Group();
-    deskGroup.position.set(4.25, 0, 3.62);
+    deskGroup.position.set(floorLayout.desk.x, 0, floorLayout.desk.z);
 
     const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.5), woodMat);
     deskTop.position.y = 0.9;
@@ -995,19 +1060,19 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         mesh: chairSeat,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(4.25, 0, 4.62),
-        deskLookAt: new THREE.Vector3(4.25, 1.3, 3.22),
+        chairWorldPos: new THREE.Vector3(floorLayout.desk.x, 0, floorLayout.desk.z + 1.0),
+        deskLookAt: new THREE.Vector3(floorLayout.desk.x, 1.3, floorLayout.desk.z - 0.4),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(3.24, 1.5, 4.52)
+        chairExitPos: new THREE.Vector3(floorLayout.desk.x - 1.01, 1.5, floorLayout.desk.z + 0.9)
     });
     interactables.push({
         mesh: chairBack,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(4.25, 0, 4.62),
-        deskLookAt: new THREE.Vector3(4.25, 1.3, 3.22),
+        chairWorldPos: new THREE.Vector3(floorLayout.desk.x, 0, floorLayout.desk.z + 1.0),
+        deskLookAt: new THREE.Vector3(floorLayout.desk.x, 1.3, floorLayout.desk.z - 0.4),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(3.24, 1.5, 4.52)
+        chairExitPos: new THREE.Vector3(floorLayout.desk.x - 1.01, 1.5, floorLayout.desk.z + 0.9)
     });
 
     // Lamp
@@ -1414,7 +1479,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ FULL DIGITAL PIANO ============
     const pianoGroup = new THREE.Group();
-    pianoGroup.position.set(-4.35, 0, 4.15);
+    pianoGroup.position.set(floorLayout.piano.x, 0, floorLayout.piano.z);
     pianoGroup.rotation.y = -Math.PI / 2;
     pianoGroup.scale.set(1.0, 1.0, 1.0);
 
@@ -2052,8 +2117,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     // Add interaction to sit
-    const pianoSeatPos = new THREE.Vector3(-5.18, 0, 4.15);
-    const pianoViewTarget = new THREE.Vector3(-3.52, 1.05, 4.15);
+    const pianoSeatPos = new THREE.Vector3(floorLayout.piano.x - 0.83, 0, floorLayout.piano.z);
+    const pianoViewTarget = new THREE.Vector3(floorLayout.piano.x + 0.83, 1.05, floorLayout.piano.z);
     for (let km of pianoKeyMeshes) {
         interactables.push({ mesh: km, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
     }
@@ -2151,7 +2216,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ MINI FRIDGE ============
     const fridgeGroup = new THREE.Group();
-    fridgeGroup.position.set(-5.45, 0, 2.15);
+    fridgeGroup.position.set(floorLayout.fridge.x, 0, floorLayout.fridge.z);
     fridgeGroup.rotation.y = Math.PI / 2; // Face into the hall
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0xe7e9ec, roughness: 0.28, metalness: 0.08 });
@@ -2330,8 +2395,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     interactables.push({ mesh: fridgeBody, action: () => fridgeInteractable.action(), get label() { return fridgeInteractable.label; } });
 
     // Cinematic targets for fridge items
-    const fridgeCamPos = new THREE.Vector3(-4.42, 1.3, 2.15);
-    const fridgeLookAt = new THREE.Vector3(-5.48, 1.3, 2.15);
+    const fridgeCamPos = new THREE.Vector3(floorLayout.fridge.x + 1.03, 1.3, floorLayout.fridge.z);
+    const fridgeLookAt = new THREE.Vector3(floorLayout.fridge.x - 0.03, 1.3, floorLayout.fridge.z);
 
     const grabItemAction = (item) => {
         if (!fridgeOpen || !item.available) return;
@@ -2470,11 +2535,16 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         new THREE.PlaneGeometry(2.1, 2.8), 
         new THREE.MeshBasicMaterial({ map: posterTex, side: THREE.DoubleSide })
     );
-    posterMesh.position.set(-2.78, 2.0, -3.98); // Back wall, left of the throne
+    const POSTER_X = ROOM_HALF_X - 0.075;
+    const POSTER_Z = -1.35;
+    const POSTER_ROT_Y = -Math.PI / 2;
+    posterMesh.position.set(POSTER_X, 2.0, POSTER_Z);
+    posterMesh.rotation.y = POSTER_ROT_Y;
     scene.add(posterMesh);
     const posterFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a2520, roughness: 0.45 });
     const posterFrame = new THREE.Group();
     posterFrame.position.copy(posterMesh.position);
+    posterFrame.rotation.y = POSTER_ROT_Y;
     const posterTop = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.06, 0.045), posterFrameMat);
     posterTop.position.y = 1.43;
     posterFrame.add(posterTop);
@@ -2490,9 +2560,11 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     scene.add(posterFrame);
     const posterControlMat = new THREE.MeshBasicMaterial({ visible: false });
     const posterScrollUp = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollUp.position.set(-2.78, 3.05, -3.93);
+    posterScrollUp.position.set(POSTER_X - 0.045, 3.05, POSTER_Z);
+    posterScrollUp.rotation.y = POSTER_ROT_Y;
     const posterScrollDown = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollDown.position.set(-2.78, 0.95, -3.93);
+    posterScrollDown.position.set(POSTER_X - 0.045, 0.95, POSTER_Z);
+    posterScrollDown.rotation.y = POSTER_ROT_Y;
     scene.add(posterScrollUp, posterScrollDown);
     interactables.push({
         mesh: posterScrollUp,
@@ -2546,8 +2618,44 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         castleGroup.add(rail);
     }
 
-    const columnPositions = [[-3.55,-3.45],[3.55,-3.45],[-3.55,3.55],[3.55,3.55],[-1.55,-2.35],[1.55,-2.35],[-1.55,1.2],[1.55,1.2]];
-    // Eight columns now render as three instanced draw calls instead of 24 meshes.
+    const columnCandidates = [
+        [-2.30, -2.50], [2.30, -2.50],
+        [-2.30, 0.20], [2.30, 0.20],
+        [-2.30, 2.65], [2.30, 1.55],
+        [-3.72, -3.45], [3.72, -3.45]
+    ];
+    const circleTouchesReservation = (x, z, radius, rect, gap = 0.16) => {
+        const nearestX = Math.max(rect.x - rect.halfX - gap, Math.min(x, rect.x + rect.halfX + gap));
+        const nearestZ = Math.max(rect.z - rect.halfZ - gap, Math.min(z, rect.z + rect.halfZ + gap));
+        const dx = x - nearestX;
+        const dz = z - nearestZ;
+        return dx * dx + dz * dz < radius * radius;
+    };
+    const columnPositions = [];
+    const columnRadius = 0.36;
+    const columnStep = 0.22;
+    for (const [preferredX, preferredZ] of columnCandidates) {
+        let placed = null;
+        for (let ring = 0; ring <= 30 && !placed; ring++) {
+            for (let ix = -ring; ix <= ring && !placed; ix++) {
+                for (let iz = -ring; iz <= ring; iz++) {
+                    if (ring > 0 && Math.abs(ix) !== ring && Math.abs(iz) !== ring) continue;
+                    const x = Math.max(-5.48, Math.min(5.48, preferredX + ix * columnStep));
+                    const z = Math.max(-7.48, Math.min(5.48, preferredZ + iz * columnStep));
+                    if (layoutReservations.some((reservation) => circleTouchesReservation(x, z, columnRadius, reservation))) continue;
+                    if (columnPositions.some(([otherX, otherZ]) => {
+                        const dx = x - otherX;
+                        const dz = z - otherZ;
+                        const minimum = columnRadius * 2 + 0.24;
+                        return dx * dx + dz * dz < minimum * minimum;
+                    })) continue;
+                    placed = [x, z];
+                    break;
+                }
+            }
+        }
+        if (placed) columnPositions.push(placed);
+    }
     const columnShafts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.19, 3.65, 8), castleStoneAltMat, columnPositions.length);
     const columnBases = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.28, 0.32, 0.18, 8), castleIronMat, columnPositions.length);
     const columnCapitals = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.28, 0.16, 0.22, 8), castleIronMat, columnPositions.length);
@@ -2924,10 +3032,26 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const offlineGroup = new THREE.Group();
     offlineGroup.scale.setScalar(1.12);
     offlineGroup.position.set(0, -0.03, 0.03);
-    const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1.55, 8, 1, true), royalBlackMat);
-    cloak.position.set(0, 1.46, 0.52);
-    cloak.rotation.x = Math.PI;
-    offlineGroup.add(cloak);
+    // A rear cape instead of an inverted cone. The old cone crossed the ribs and
+    // read as giant black straps from the kneeling camera. These panels stay
+    // behind the skeleton and never intersect the body.
+    const capeMat = new THREE.MeshStandardMaterial({
+        color: 0x130812,
+        emissive: 0x26000b,
+        emissiveIntensity: 0.16,
+        roughness: 0.78,
+        side: THREE.DoubleSide
+    });
+    const cape = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 1.62), capeMat);
+    cape.position.set(0, 1.5, 0.39);
+    offlineGroup.add(cape);
+    const capeTail = new THREE.Mesh(new THREE.PlaneGeometry(1.62, 0.82), capeMat);
+    capeTail.position.set(0, 0.78, 0.36);
+    capeTail.rotation.x = -0.18;
+    offlineGroup.add(capeTail);
+    const mantle = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.18, 0.16), royalPurpleMat);
+    mantle.position.set(0, 1.96, 0.52);
+    offlineGroup.add(mantle);
     const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.065, 0.92, 8), boneMat);
     spine.position.set(0, 1.63, 0.72);
     offlineGroup.add(spine);
@@ -3022,15 +3146,15 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
     setKingPresence(kingPresence);
 
-    const kneelTarget = new THREE.Vector3(0, 0, -3.88);
-    const kneelLook = new THREE.Vector3(0, 2.62, -6.08);
+    const kneelTarget = new THREE.Vector3(0, 0, -2.36);
+    const kneelLook = new THREE.Vector3(0, 2.48, -6.16);
     interactables.push({
         mesh: throneSeat,
         action: 'kneelThrone',
         get label() { return kingPresence.online ? 'Kneel Before My Lord' : 'Kneel at the Bone Throne'; },
         kneelWorldPos: kneelTarget,
         kneelLookAt: kneelLook,
-        kneelExitPos: new THREE.Vector3(1.18, 1.5, -3.4)
+        kneelExitPos: new THREE.Vector3(1.45, 1.5, -2.18)
     });
 
     // Toggleable skeletal pianist. Off: standing beside the piano. On: seated,
@@ -3089,8 +3213,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         servantLegs.push({ side, thigh, shin, foot });
     }
 
-    const servantStandingPos = new THREE.Vector3(-4.82, 0, 3.02);
-    const servantPianoPos = new THREE.Vector3(-5.16, 0, 4.15);
+    const servantStandingPos = new THREE.Vector3(floorLayout.piano.x - 0.47, 0, floorLayout.piano.z - 1.13);
+    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.81, 0, floorLayout.piano.z);
     servantGroup.position.copy(servantStandingPos);
     servantGroup.rotation.y = -0.48;
 
@@ -3280,8 +3404,26 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         }
     });
 
+    // Player/camera collision uses the same solved footprints as rendering, so
+    // the camera cannot enter the throne stairs or any major furniture.
+    const collisionBoxes = [
+        { id: 'throne', minX: -3.28, maxX: 3.28, minZ: -7.46, maxZ: -2.92 },
+        { id: 'bed', minX: floorLayout.bed.x - 1.16, maxX: floorLayout.bed.x + 1.16, minZ: floorLayout.bed.z - 1.58, maxZ: floorLayout.bed.z + 1.58 },
+        { id: 'desk', minX: floorLayout.desk.x - 1.62, maxX: floorLayout.desk.x + 1.62, minZ: floorLayout.desk.z - 0.84, maxZ: floorLayout.desk.z + 0.54 },
+        { id: 'fridge', minX: floorLayout.fridge.x - 0.52, maxX: floorLayout.fridge.x + 0.52, minZ: floorLayout.fridge.z - 0.52, maxZ: floorLayout.fridge.z + 0.52 },
+        { id: 'piano', minX: floorLayout.piano.x - 0.62, maxX: floorLayout.piano.x + 0.62, minZ: floorLayout.piano.z - 1.48, maxZ: floorLayout.piano.z + 1.48 },
+        ...columnPositions.map(([x, z], index) => ({
+            id: `column-${index + 1}`,
+            minX: x - 0.31,
+            maxX: x + 0.31,
+            minZ: z - 0.31,
+            maxZ: z + 0.31
+        }))
+    ];
+
     return {
         interactables,
+        collisionBoxes,
         updatables,
         cullables,
         updatePC: (dt) => {
