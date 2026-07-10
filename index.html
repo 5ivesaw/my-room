@@ -10,7 +10,7 @@
     <meta property="og:type" content="website">
     <title>My Kingdom</title>
     <link rel="icon" href="assets/my-room-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=65">
+    <link rel="stylesheet" href="styles.css?v=67">
     <link rel="stylesheet" href="pc-os.css?v=61">
     <!-- Import map for Three.js -->
     <script type="importmap">
@@ -148,6 +148,35 @@
                 </div>
             </div>
 
+            <button id="royal-mail-toggle" class="royal-mail-toggle hidden" type="button" aria-controls="royal-mail-panel" aria-expanded="false">
+                <span>Royal Mail</span>
+                <b id="royal-mail-count">0</b>
+            </button>
+
+            <aside id="royal-mail-panel" class="royal-mail-panel hidden" aria-label="Royal messages and visitor identity">
+                <header>
+                    <div>
+                        <p>Visitor identity</p>
+                        <h2>Royal Mail</h2>
+                    </div>
+                    <button id="royal-mail-close" type="button" aria-label="Close Royal Mail">×</button>
+                </header>
+                <label class="royal-name-field">
+                    <span>Display name</span>
+                    <input id="visitor-display-name" maxlength="24" autocomplete="nickname" placeholder="Friend">
+                </label>
+                <div class="royal-code-row">
+                    <span>Permanent Veil code</span>
+                    <code id="visitor-code">Connecting…</code>
+                    <button id="copy-visitor-code" type="button">Copy</button>
+                </div>
+                <p class="royal-identity-note">This code belongs to this Firebase account. Clearing browser data creates a new anonymous account.</p>
+                <div id="royal-mail-list" class="royal-mail-list">
+                    <p class="royal-empty">No message from the throne.</p>
+                </div>
+                <button id="open-veil-chat" class="royal-open-veil" type="button">Open Veil Chat</button>
+            </aside>
+
             <section id="audience-panel" class="audience-panel hidden" aria-labelledby="audience-title">
                 <div class="audience-card">
                     <p class="audience-kicker">An audience with the sovereign</p>
@@ -177,7 +206,7 @@
         
         
         <script src="veil-chat/firebase-config.js"></script>
-        <script type="module" src="main.js?v=65"></script>
+        <script type="module" src="main.js?v=67"></script>
     </div>
 </body>
 </html>

@@ -2035,3 +2035,101 @@ body:has(.setup-screen) {
 .media-attachment audio,.media-attachment video { display:block; width:100%; max-height:340px; border-radius:14px; background:#03050a; }
 .media-attachment figcaption { padding:7px 3px 0; color:var(--muted); font-size:12px; }
 @keyframes recordPulse { to { box-shadow:0 0 24px rgba(255,77,109,.48); } }
+
+/* v63: permanent visitor code and temporary Royal Mail */
+.contact-code button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 11px;
+  border-radius: 11px;
+}
+
+.royal-mail-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 210, 125, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 197, 99, 0.075), rgba(255, 79, 119, 0.045));
+}
+
+.royal-mail-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.royal-mail-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.royal-mail-heading span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.royal-mail-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.royal-mail-card {
+  display: grid;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  background: rgba(4, 7, 13, 0.35);
+}
+
+.royal-mail-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.royal-mail-card strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.royal-mail-card span {
+  color: #ffd287;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.royal-mail-card p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.royal-mail-card button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 8px 11px;
+  border-radius: 11px;
+}
+
+@media (max-width: 600px) {
+  .contact-code {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .contact-code span {
+    grid-column: 1 / -1;
+  }
+
+  .royal-mail-heading,
+  .royal-mail-card > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

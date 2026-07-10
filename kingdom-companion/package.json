@@ -1,13 +1,58 @@
 {
   "name": "my-room-kingdom-companion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Secure tray presence and message companion for My Room",
+  "description": "Secure tray presence, audience inbox, and Royal Mail companion for My Kingdom",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64 --publish never"
   },
   "devDependencies": {
-    "electron": "43.1.0"
+    "electron": "43.1.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "lol.goat.kingdomcompanion",
+    "productName": "Kingdom Companion",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "firebase-config.js",
+      "firebase-config.sample.js",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/kingdom-companion.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kingdom Companion"
+    }
   }
 }

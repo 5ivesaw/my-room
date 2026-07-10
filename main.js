@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=66';
+import { createWorld } from './world.js?v=67';
 import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
@@ -182,6 +182,15 @@ const audienceMessage = document.getElementById('audience-message');
 const audienceFile = document.getElementById('audience-file');
 const audienceSend = document.getElementById('audience-send');
 const audienceFormNote = document.getElementById('audience-form-note');
+const royalMailToggle = document.getElementById('royal-mail-toggle');
+const royalMailPanel = document.getElementById('royal-mail-panel');
+const royalMailClose = document.getElementById('royal-mail-close');
+const royalMailCount = document.getElementById('royal-mail-count');
+const royalMailList = document.getElementById('royal-mail-list');
+const visitorDisplayNameInput = document.getElementById('visitor-display-name');
+const visitorCodeEl = document.getElementById('visitor-code');
+const copyVisitorCodeBtn = document.getElementById('copy-visitor-code');
+const openVeilChatBtn = document.getElementById('open-veil-chat');
 const AUDIENCE_QUEUE_KEY = 'my-room.audiencePetitions.v1';
 const AUDIENCE_LAST_SENT_KEY = 'my-room.audiencePetition.lastSentAt';
 const AUDIENCE_COOLDOWN_MS = 60000;
@@ -189,6 +198,13 @@ const AUDIENCE_MAX_FILE_BYTES = 480000;
 let currentPresence = { status: 'offline', online: false, message: '' };
 let audienceSubmitBusy = false;
 let audienceFirebasePromise = null;
+let visitorIdentity = { uid: '', code: '', displayName: '', messages: [] };
+let stopRoyalMail = null;
+let royalMailHeartbeat = null;
+let royalMailExpiryTimer = null;
+const VISITOR_NAME_KEY = 'veil.displayName.v1';
+const VISITOR_AVATAR_KEY = 'veil.avatar.v1';
+const LORD_MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function applyKingdomPresence(presence = {}) {
     const online = presence.online === true;
@@ -234,17 +250,161 @@ async function getAudienceFirebase() {
     audienceFirebasePromise = (async () => {
         const config = window.VEIL_FIREBASE_CONFIG;
         if (!config?.apiKey) throw new Error('Firebase audience is not configured.');
-        const [{ initializeApp, getApps }, { getAuth, signInAnonymously }, { getFirestore, collection, addDoc, serverTimestamp }] = await Promise.all([
+        const [
+            { initializeApp, getApps },
+            { getAuth, signInAnonymously, setPersistence, browserLocalPersistence },
+            {
+                getFirestore,
+                collection,
+                addDoc,
+                setDoc,
+                doc,
+                onSnapshot,
+                query,
+                orderBy,
+                limit,
+                serverTimestamp,
+                deleteDoc
+            }
+        ] = await Promise.all([
             import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
             import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
             import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
         ]);
         const app = getApps().length ? getApps()[0] : initializeApp(config);
         const auth = getAuth(app);
+        await setPersistence(auth, browserLocalPersistence).catch(() => {});
         if (!auth.currentUser) await signInAnonymously(auth);
-        return { auth, db: getFirestore(app), collection, addDoc, serverTimestamp };
+        return {
+            auth,
+            db: getFirestore(app),
+            collection,
+            addDoc,
+            setDoc,
+            doc,
+            onSnapshot,
+            query,
+            orderBy,
+            limit,
+            serverTimestamp,
+            deleteDoc
+        };
     })();
     return audienceFirebasePromise;
+}
+
+function escapeRoyalHtml(value = '') {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+}
+
+function normalizeVisitorName(value, uid = '') {
+    const cleaned = String(value || '')
+        .replace(/[^A-Za-z0-9 _.-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 24);
+    if (cleaned.length >= 2) return cleaned;
+    const suffix = String(uid || '0000').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || '0000';
+    return `Friend-${suffix}`;
+}
+
+function activeLordMessages() {
+    const now = Date.now();
+    return visitorIdentity.messages.filter((message) => {
+        const expiresMs = Number(message.expiresMs || 0);
+        return expiresMs > now && expiresMs - Number(message.createdMs || 0) <= LORD_MESSAGE_MAX_AGE_MS;
+    });
+}
+
+function renderRoyalMail() {
+    const active = activeLordMessages();
+    if (royalMailCount) royalMailCount.textContent = String(active.length);
+    royalMailToggle?.classList.toggle('has-mail', active.length > 0);
+    if (!royalMailList) return;
+    if (!active.length) {
+        royalMailList.innerHTML = '<p class="royal-empty">No active message from the throne.</p>';
+        return;
+    }
+    const now = Date.now();
+    royalMailList.innerHTML = active.map((message) => {
+        const remainingSeconds = Math.max(1, Math.ceil((Number(message.expiresMs) - now) / 1000));
+        const preview = String(message.text || '').slice(0, 180);
+        return `<article class="royal-message">
+            <time>From the sovereign</time>
+            <p>${escapeRoyalHtml(preview)}${String(message.text || '').length > 180 ? '…' : ''}</p>
+            <small>Disappears in ${remainingSeconds}s. Open Veil Chat for the full audience.</small>
+        </article>`;
+    }).join('');
+}
+
+async function syncVisitorProfile() {
+    const firebase = await getAudienceFirebase();
+    const uid = firebase.auth.currentUser?.uid;
+    if (!uid) return;
+    const displayName = normalizeVisitorName(
+        visitorDisplayNameInput?.value || localStorage.getItem(VISITOR_NAME_KEY),
+        uid
+    );
+    const avatar = String(localStorage.getItem(VISITOR_AVATAR_KEY) || '0'.repeat(64)).replace(/[^0-7]/g, '').slice(0, 64).padEnd(64, '0');
+    visitorIdentity.uid = uid;
+    visitorIdentity.code = uid;
+    visitorIdentity.displayName = displayName;
+    localStorage.setItem(VISITOR_NAME_KEY, displayName);
+    if (visitorDisplayNameInput) visitorDisplayNameInput.value = displayName;
+    if (visitorCodeEl) visitorCodeEl.textContent = uid;
+    await firebase.setDoc(firebase.doc(firebase.db, 'users', uid), {
+        uid,
+        publicCode: uid,
+        displayName,
+        avatar,
+        lastSeenMs: Date.now(),
+        lastSeenAt: firebase.serverTimestamp()
+    }, { merge: true });
+}
+
+async function startRoyalMail() {
+    try {
+        const firebase = await getAudienceFirebase();
+        await syncVisitorProfile();
+        royalMailToggle?.classList.remove('hidden');
+
+        if (stopRoyalMail) stopRoyalMail();
+        const messageQuery = firebase.query(
+            firebase.collection(firebase.db, 'users', visitorIdentity.uid, 'lordMessages'),
+            firebase.orderBy('createdMs', 'desc'),
+            firebase.limit(12)
+        );
+        let firstSnapshot = true;
+        stopRoyalMail = firebase.onSnapshot(messageQuery, (snapshot) => {
+            const now = Date.now();
+            visitorIdentity.messages = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+            for (const message of visitorIdentity.messages) {
+                if (Number(message.expiresMs || 0) <= now) {
+                    firebase.deleteDoc(firebase.doc(firebase.db, 'users', visitorIdentity.uid, 'lordMessages', message.id)).catch(() => {});
+                }
+            }
+            renderRoyalMail();
+            if (!firstSnapshot) {
+                const newest = snapshot.docChanges().find((change) => change.type === 'added')?.doc?.data();
+                if (newest && Number(newest.expiresMs || 0) > now) {
+                    showMessage('A temporary message from the sovereign arrived in Royal Mail.');
+                    royalMailToggle?.classList.remove('hidden');
+                }
+            }
+            firstSnapshot = false;
+        }, (error) => {
+            console.warn('Royal Mail unavailable:', error.message);
+        });
+
+        clearInterval(royalMailHeartbeat);
+        royalMailHeartbeat = setInterval(() => syncVisitorProfile().catch(() => {}), 30000);
+        clearInterval(royalMailExpiryTimer);
+        royalMailExpiryTimer = setInterval(renderRoyalMail, 1000);
+    } catch (error) {
+        console.warn('Visitor identity unavailable:', error.message);
+    }
 }
 
 async function sendRemotePetition(payload) {
@@ -259,6 +419,8 @@ async function sendRemotePetition(payload) {
         } : null,
         statusAtSubmission: payload.statusAtSubmission,
         senderUid: auth.currentUser?.uid || 'anonymous',
+        displayName: normalizeVisitorName(visitorIdentity.displayName, auth.currentUser?.uid || ''),
+        publicCode: auth.currentUser?.uid || '',
         createdAt: serverTimestamp(),
         createdMs: Date.now()
     });
@@ -288,8 +450,7 @@ async function submitAudiencePetition(event) {
             text,
             attachment,
             statusAtSubmission: currentPresence.status || 'offline',
-            createdAt: new Date().toISOString(),
-            userAgent: navigator.userAgent.slice(0, 180)
+            createdAt: new Date().toISOString()
         };
         rememberLocalPetition(payload);
         try {
@@ -326,6 +487,38 @@ function closeAudiencePanel() {
 
 audienceClose?.addEventListener('click', closeAudiencePanel);
 audienceForm?.addEventListener('submit', submitAudiencePetition);
+
+royalMailToggle?.addEventListener('click', () => {
+    const opening = royalMailPanel?.classList.contains('hidden');
+    royalMailPanel?.classList.toggle('hidden', !opening);
+    royalMailToggle?.setAttribute('aria-expanded', String(Boolean(opening)));
+    if (opening && document.pointerLockElement) document.exitPointerLock?.();
+});
+royalMailClose?.addEventListener('click', () => {
+    royalMailPanel?.classList.add('hidden');
+    royalMailToggle?.setAttribute('aria-expanded', 'false');
+    if (hasStarted) requestControlLock();
+});
+visitorDisplayNameInput?.addEventListener('change', () => {
+    visitorDisplayNameInput.value = normalizeVisitorName(visitorDisplayNameInput.value, visitorIdentity.uid);
+    syncVisitorProfile().catch((error) => showMessage(`Name update failed: ${error.message}`));
+});
+copyVisitorCodeBtn?.addEventListener('click', async () => {
+    if (!visitorIdentity.code) return;
+    try {
+        await navigator.clipboard.writeText(visitorIdentity.code);
+        showMessage('Permanent Veil code copied.');
+    } catch {
+        showMessage(visitorIdentity.code);
+    }
+});
+openVeilChatBtn?.addEventListener('click', () => {
+    location.assign('veil-chat/?royal=1');
+});
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncVisitorProfile().catch(() => {});
+});
+startRoyalMail();
 
 function shouldUseMobileInput() {
     return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;

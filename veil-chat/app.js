@@ -60,6 +60,9 @@ let privateKey = null;
 let publicKeyJwk = null;
 let unsubFriendRequests = null;
 let unsubFriends = null;
+let unsubLordMessages = null;
+let profileHeartbeat = null;
+let royalExpiryTimer = null;
 let recentSendTimes = [];
 let activeRecorder = null;
 let lastSystemNoticeAt = 0;
@@ -79,6 +82,7 @@ const state = {
   messages: [],
   friendRequests: [],
   friends: [],
+  lordMessages: [],
   friendInput: ''
 };
 
@@ -100,6 +104,17 @@ function bytesToBase64(bytes) {
 function base64ToBytes(base64) {
   const binary = atob(base64);
   return Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+function normalizeDisplayName(value, uid = user?.uid || '') {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z0-9 _.-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24);
+  if (cleaned.length >= 2) return cleaned;
+  const suffix = String(uid || '0000').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || '0000';
+  return `Friend-${suffix}`;
 }
 
 function normalizeAvatar(value) {
@@ -481,8 +496,19 @@ async function initFirebase() {
       user = nextUser;
       if (user) {
         await ensureIdentityKeys();
+        state.displayName = normalizeDisplayName(state.displayName, user.uid);
+        localStorage.setItem(LS_NAME, state.displayName);
         await syncPublicProfile();
         subscribeSocial();
+        subscribeRoyalMail();
+        clearInterval(profileHeartbeat);
+        profileHeartbeat = setInterval(() => syncPublicProfile().catch(() => {}), 30000);
+        clearInterval(royalExpiryTimer);
+        royalExpiryTimer = setInterval(() => {
+          const before = state.lordMessages.length;
+          state.lordMessages = state.lordMessages.filter((message) => Number(message.expiresMs || 0) > Date.now());
+          if (before !== state.lordMessages.length && state.status !== 'chat') render();
+        }, 5000);
         state.status = 'ready';
         render();
       }
@@ -534,11 +560,15 @@ async function syncMemberProfile() {
 
 async function syncPublicProfile() {
   if (!user || !publicKeyJwk) return;
+  state.displayName = normalizeDisplayName(state.displayName, user.uid);
   await setDoc(userPath(user.uid), {
     uid: user.uid,
+    publicCode: user.uid,
     displayName: state.displayName,
     avatar: state.avatar,
     publicKey: publicKeyJwk,
+    lastSeenMs: Date.now(),
+    lastSeenAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   }, { merge: true });
 }
@@ -557,6 +587,36 @@ function subscribeSocial() {
     state.friends = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
     if (state.status !== 'chat') render();
   }, (error) => toast(`Friends blocked: ${error.message}`));
+}
+
+function subscribeRoyalMail() {
+  if (!user || !db) return;
+  if (unsubLordMessages) unsubLordMessages();
+  const messagesQuery = query(
+    collection(db, 'users', user.uid, 'lordMessages'),
+    orderBy('createdMs', 'desc'),
+    limit(20)
+  );
+  let firstSnapshot = true;
+  unsubLordMessages = onSnapshot(messagesQuery, (snapshot) => {
+    const now = Date.now();
+    state.lordMessages = snapshot.docs
+      .map((entry) => ({ id: entry.id, ...entry.data() }))
+      .filter((message) => Number(message.expiresMs || 0) > now);
+    for (const entry of snapshot.docs) {
+      if (Number(entry.data().expiresMs || 0) <= now) {
+        deleteDoc(doc(db, 'users', user.uid, 'lordMessages', entry.id)).catch(() => {});
+      }
+    }
+    if (!firstSnapshot) {
+      const newest = snapshot.docChanges().find((change) => change.type === 'added')?.doc?.data();
+      if (newest && Number(newest.expiresMs || 0) > now) {
+        toast('A temporary message from the sovereign arrived.');
+      }
+    }
+    firstSnapshot = false;
+    if (state.status !== 'chat') render();
+  }, (error) => toast(`Royal Mail blocked: ${error.message}`));
 }
 
 async function sendFriendRequest(targetValue) {
@@ -1134,6 +1194,18 @@ function renderSocialPanel(friendPrefill = '') {
       `).join('')
     : '<p class="social-empty">No friends yet. Share your contact link or paste theirs.</p>';
 
+  const now = Date.now();
+  const royalMail = state.lordMessages.length
+    ? state.lordMessages.map((message) => {
+        const seconds = Math.max(1, Math.ceil((Number(message.expiresMs || 0) - now) / 1000));
+        return `<article class="royal-mail-card">
+          <div><strong>Message from the sovereign</strong><span>Expires in ${seconds}s</span></div>
+          <p>${escapeHtml(message.text || '')}</p>
+          ${message.contactUid ? `<button type="button" data-open-lord-contact="${escapeHtml(message.contactUid)}">Open secure DM</button>` : ''}
+        </article>`;
+      }).join('')
+    : '<p class="social-empty">No active Royal Mail. Temporary messages vanish after their expiry time.</p>';
+
   return `
     <section class="social-panel">
       <div class="social-head">
@@ -1143,11 +1215,15 @@ function renderSocialPanel(friendPrefill = '') {
         </div>
         <button id="copyFriendLink" type="button">Copy my contact link</button>
       </div>
-      <div class="contact-code"><span>My code</span><code>${escapeHtml(user?.uid || 'loading')}</code></div>
+      <div class="contact-code"><span>Permanent Veil code</span><code>${escapeHtml(user?.uid || 'loading')}</code><button id="copyPermanentCode" type="button">Copy code</button></div>
       <form id="friendRequestForm" class="friend-form">
-        <input name="friendCode" value="${escapeHtml(friendPrefill)}" placeholder="Paste friend link or code">
+        <input name="friendCode" value="${escapeHtml(friendPrefill)}" placeholder="Paste friend link or permanent code">
         <button type="submit">Send request</button>
       </form>
+      <section class="royal-mail-section">
+        <div class="royal-mail-heading"><h3>Royal Mail</h3><span>Temporary sovereign messages</span></div>
+        <div class="royal-mail-grid">${royalMail}</div>
+      </section>
       <div class="social-grid">
         <section><h3>Requests</h3>${requests}</section>
         <section><h3>Direct messages</h3>${friends}</section>
@@ -1433,6 +1509,10 @@ function bindSocialControls() {
     await navigator.clipboard?.writeText(myFriendLink());
     toast('Copied your contact link. They can request you from inside Veil.');
   });
+  document.getElementById('copyPermanentCode')?.addEventListener('click', async () => {
+    await navigator.clipboard?.writeText(user?.uid || '');
+    toast('Permanent Veil code copied.');
+  });
 
   document.getElementById('friendRequestForm')?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1463,6 +1543,19 @@ function bindSocialControls() {
     });
   });
 
+  document.querySelectorAll('[data-open-lord-contact]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const targetUid = safeUid(button.dataset.openLordContact);
+      const friend = state.friends.find((item) => (item.uid || item.id) === targetUid);
+      if (friend) {
+        await openDmRoom(friend);
+      } else {
+        state.friendInput = targetUid;
+        await sendFriendRequest(targetUid);
+      }
+    });
+  });
+
   document.querySelectorAll('[data-remove-friend]').forEach((button) => {
     button.addEventListener('click', () => removeFriend(button.dataset.removeFriend));
   });
@@ -1470,7 +1563,8 @@ function bindSocialControls() {
 
 function bindSharedControls() {
   document.getElementById('displayName')?.addEventListener('input', (event) => {
-    state.displayName = event.target.value.trim().slice(0, 24) || 'Friend';
+    state.displayName = normalizeDisplayName(event.target.value, user?.uid || '');
+    event.target.value = state.displayName;
     localStorage.setItem(LS_NAME, state.displayName);
     syncMemberProfile().catch(() => {});
     syncPublicProfile().catch(() => {});
@@ -1561,6 +1655,10 @@ document.addEventListener('keydown', (event) => {
 window.addEventListener('beforeunload', () => {
   if (unsubMessages) unsubMessages();
   if (unsubMembers) unsubMembers();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncPublicProfile().catch(() => {});
 });
 
 initFirebase();

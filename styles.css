@@ -1939,3 +1939,214 @@ button:active,
         justify-content: flex-start;
     }
 }
+
+/* v66: temporary Royal Mail sidebar and stable visitor identity */
+.royal-mail-toggle {
+    position: fixed;
+    top: max(18px, env(safe-area-inset-top));
+    right: max(18px, env(safe-area-inset-right));
+    z-index: 640;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 0 13px;
+    border: 1px solid rgba(225, 185, 116, .35);
+    border-radius: 999px;
+    color: #f3e7d1;
+    background: rgba(12, 7, 10, .9);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .42), inset 0 1px rgba(255,255,255,.06);
+    font: 800 12px/1 ui-monospace, monospace;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    backdrop-filter: blur(12px);
+    pointer-events: auto;
+}
+.royal-mail-toggle b {
+    display: grid;
+    place-items: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    color: #190309;
+    background: #e9c27d;
+    font-size: 11px;
+}
+.royal-mail-toggle.has-mail b {
+    color: #fff4e6;
+    background: #d31638;
+    box-shadow: 0 0 18px rgba(211,22,56,.55);
+}
+.royal-mail-panel {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 650;
+    width: min(390px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(225, 185, 116, .34);
+    border-radius: 18px;
+    color: #efe4d0;
+    background: linear-gradient(160deg, rgba(100, 9, 27, .12), transparent 38%), rgba(8, 5, 8, .96);
+    box-shadow: 0 30px 100px rgba(0,0,0,.68), inset 0 1px rgba(255,255,255,.07);
+    backdrop-filter: blur(18px) saturate(120%);
+    pointer-events: auto;
+}
+.royal-mail-panel.hidden,
+.royal-mail-toggle.hidden { display: none; }
+.royal-mail-panel header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+.royal-mail-panel header p {
+    margin: 0 0 4px;
+    color: #c79c57;
+    font: 800 10px/1.2 ui-monospace, monospace;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+.royal-mail-panel h2 {
+    margin: 0;
+    font: 700 34px/.95 Georgia, serif;
+    letter-spacing: -.03em;
+}
+#royal-mail-close {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    color: #eadfcd;
+    background: rgba(255,255,255,.055);
+    font: 500 25px/1 system-ui, sans-serif;
+}
+.royal-name-field {
+    display: grid;
+    gap: 6px;
+    color: rgba(239,228,208,.7);
+    font-size: 12px;
+}
+.royal-name-field input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    outline: none;
+    color: #f4ead8;
+    background: rgba(255,255,255,.055);
+    font: 700 14px/1 system-ui, sans-serif;
+}
+.royal-name-field input:focus {
+    border-color: rgba(225,185,116,.65);
+    box-shadow: 0 0 0 3px rgba(225,185,116,.11);
+}
+.royal-code-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 7px 9px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,.035);
+}
+.royal-code-row > span {
+    grid-column: 1 / -1;
+    color: rgba(239,228,208,.62);
+    font-size: 11px;
+}
+.royal-code-row code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #f0c77e;
+    font: 700 12px/1.3 ui-monospace, monospace;
+}
+.royal-code-row button,
+.royal-open-veil {
+    min-height: 38px;
+    border: 0;
+    border-radius: 9px;
+    color: #170408;
+    background: linear-gradient(135deg, #f2ddb5, #d59a45);
+    font: 900 12px/1 system-ui, sans-serif;
+}
+.royal-code-row button { padding: 0 12px; }
+.royal-identity-note {
+    margin: -5px 0 0;
+    color: rgba(239,228,208,.46);
+    font-size: 11px;
+    line-height: 1.45;
+}
+.royal-mail-list {
+    flex: 1;
+    min-height: 120px;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    overflow: auto;
+    padding-right: 3px;
+}
+.royal-message {
+    display: grid;
+    gap: 7px;
+    padding: 12px;
+    border: 1px solid rgba(211,22,56,.24);
+    border-radius: 12px;
+    background: rgba(116, 9, 28, .12);
+}
+.royal-message time {
+    color: #d9ad63;
+    font: 800 10px/1.2 ui-monospace, monospace;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.royal-message p {
+    margin: 0;
+    color: #f4ead8;
+    font-size: 13px;
+    line-height: 1.48;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.royal-message small {
+    color: rgba(239,228,208,.48);
+    font-size: 10px;
+}
+.royal-empty {
+    margin: 0;
+    padding: 18px 12px;
+    border: 1px dashed rgba(255,255,255,.12);
+    border-radius: 12px;
+    color: rgba(239,228,208,.5);
+    text-align: center;
+    font-size: 12px;
+}
+.royal-open-veil {
+    min-height: 46px;
+    width: 100%;
+}
+
+@media (max-width: 700px) {
+    .royal-mail-toggle {
+        top: max(10px, env(safe-area-inset-top));
+        right: max(10px, env(safe-area-inset-right));
+        min-height: 38px;
+    }
+    .royal-mail-panel {
+        inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+        width: auto;
+        border-radius: 14px;
+    }
+}

@@ -171,3 +171,24 @@ Friend flow:
 4. Friend opens it and clicks **Send request**.
 5. You accept the request inside Veil.
 6. The DM appears under **Direct messages**.
+
+## v63 Royal Mail, online court, and permanent visitor codes
+
+The castle and Veil Chat now maintain a lightweight public profile at `users/{uid}` containing the visitor's Firebase UID, display name, avatar, and last-seen heartbeat. The owner-only Kingdom Companion may list these profiles to show visitors active during the previous 90 seconds.
+
+Firebase configuration required:
+
+1. Keep **Anonymous Authentication** enabled for visitors.
+2. Enable **Email/Password Authentication** for the owner's companion login.
+3. Create the owner account in Firebase Authentication.
+4. Create `kingdom/config` and set `ownerUid` to the owner's Authentication UID.
+5. Publish the updated root `firestore.rules`.
+6. Optional server cleanup: in Firestore TTL settings, add a TTL policy for collection group `lordMessages` using timestamp field `expiresAt`.
+
+Royal Mail documents live at:
+
+`users/{visitorUid}/lordMessages/{messageId}`
+
+Only the configured sovereign can create them. Only that visitor and the sovereign can read them. The website and Veil Chat hide expired messages immediately and attempt to remove them; Firestore TTL can clean up anything left behind later.
+
+A visitor's permanent Veil code is the Firebase Authentication UID for that anonymous account. It is stable in the same browser, but clearing browser data or opening a new device creates a new anonymous UID. Do not try to replace this with IP addresses or browser hardware fingerprinting. To make identity portable across devices, link the anonymous account to a permanent Firebase sign-in provider later.

@@ -1,0 +1,52 @@
+name: Build Kingdom Companion
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "kingdom-companion/**"
+      - ".github/workflows/build-kingdom-companion.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-companion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-build:
+    name: Windows installer and portable app
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: kingdom-companion
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingdom-companion/package-lock.json
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Build Windows executables
+        run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload downloadable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kingdom-Companion-Windows
+          path: kingdom-companion/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30

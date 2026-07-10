@@ -30,8 +30,15 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/kingdom/config).data.ownerUid == request.auth.uid;
     }
 
+    function validDisplayName(name) {
+      return name is string
+        && name.size() >= 2
+        && name.size() <= 24
+        && name.matches('^[A-Za-z0-9 _.-]+$');
+    }
+
     match /kingdom/{documentId} {
-      // Presence is intentionally public: the room needs it before a visitor joins chat.
+      // Presence is intentionally public: the 3D room reads it before a visitor opens chat.
       allow get: if documentId == 'presence';
       allow list: if false;
       allow create, update: if documentId == 'presence'
@@ -39,13 +46,16 @@ service cloud.firestore {
         && request.resource.data.status in ['online', 'busy', 'sleeping', 'offline']
         && request.resource.data.message is string
         && request.resource.data.message.size() <= 120
-        && (!request.resource.data.keys().hasAny(['contactUid']) || (request.resource.data.contactUid is string && request.resource.data.contactUid.size() <= 128));
+        && (!request.resource.data.keys().hasAny(['contactUid'])
+          || (request.resource.data.contactUid is string && request.resource.data.contactUid.size() <= 128));
       allow delete: if false;
     }
 
     match /kingdom/audienceMessages/items/{messageId} {
       allow create: if signedIn()
         && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.publicCode == request.auth.uid
+        && validDisplayName(request.resource.data.displayName)
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 900
@@ -72,48 +82,70 @@ service cloud.firestore {
 
     function validPublicProfile(data, uid) {
       return data.uid == uid
-        && data.displayName is string
-        && data.displayName.size() <= 24
+        && data.publicCode == uid
+        && validDisplayName(data.displayName)
         && data.avatar is string
         && data.avatar.size() <= 80
-        && data.publicKey is map;
+        && data.lastSeenMs is number
+        && (!data.keys().hasAny(['publicKey']) || data.publicKey is map);
     }
 
     function validMemberProfile(data, uid) {
       return data.uid == uid
-        && data.displayName is string
-        && data.displayName.size() <= 24
+        && validDisplayName(data.displayName)
         && (!data.keys().hasAny(['avatar']) || (data.avatar is string && data.avatar.size() <= 80));
     }
 
     match /users/{uid} {
+      // Signed-in visitors need individual profile reads for friend codes.
+      // Only the sovereign can list the directory for the companion's live court view.
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if isSovereign();
 
       allow create, update: if signedIn()
         && uid == request.auth.uid
         && validPublicProfile(request.resource.data, request.auth.uid);
+
+      match /lordMessages/{messageId} {
+        allow get, list: if signedIn()
+          && (uid == request.auth.uid || isSovereign());
+
+        allow create: if isSovereign()
+          && request.resource.data.recipientUid == uid
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.createdMs is number
+          && request.resource.data.expiresMs is number
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.expiresMs > request.resource.data.createdMs
+          && request.resource.data.expiresMs <= request.resource.data.createdMs + 86400000
+          && (!request.resource.data.keys().hasAny(['contactUid'])
+            || (request.resource.data.contactUid is string && request.resource.data.contactUid.size() <= 128));
+
+        allow delete: if signedIn()
+          && (uid == request.auth.uid || isSovereign());
+        allow update: if false;
+      }
 
       match /requests/{fromUid} {
         allow read, delete: if signedIn() && uid == request.auth.uid;
         allow create, update: if signedIn()
           && fromUid == request.auth.uid
           && request.resource.data.fromUid == request.auth.uid
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() <= 24
+          && validDisplayName(request.resource.data.displayName)
           && request.resource.data.avatar is string
           && request.resource.data.avatar.size() <= 80;
       }
 
       match /friends/{friendUid} {
         allow read, delete: if signedIn() && uid == request.auth.uid;
-        // Lets the user accepting a friend request create both friendship cards:
-        // their own card and the other person's reciprocal card.
+        // Lets the user accepting a request create both reciprocal friendship cards.
         allow create, update: if signedIn()
           && (uid == request.auth.uid || friendUid == request.auth.uid)
           && request.resource.data.uid == friendUid
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() <= 24
+          && validDisplayName(request.resource.data.displayName)
           && request.resource.data.dmRoomId is string
           && request.resource.data.dmRoomId.size() < 180
           && (!request.resource.data.keys().hasAny(['avatar']) || request.resource.data.avatar is string);

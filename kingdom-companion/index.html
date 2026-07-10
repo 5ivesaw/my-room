@@ -8,34 +8,123 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <p class="kicker">Sovereign control</p>
-    <h1>The Throne</h1>
-    <p class="lead">This app publishes only your chosen status and keeps the encrypted chat page alive in a sandboxed window.</p>
-    <section id="authCard" class="card">
-      <h2>Owner sign-in</h2>
-      <input id="email" type="email" autocomplete="username" placeholder="Firebase owner email">
-      <input id="password" type="password" autocomplete="current-password" placeholder="Password">
-      <button id="signIn">Sign in securely</button>
-      <p class="fine">Your password is sent directly to Firebase Auth and is never written to this app's settings file.</p>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="sigil" aria-hidden="true">K</span>
+        <div>
+          <p class="kicker">Sovereign control</p>
+          <h1>Kingdom Companion</h1>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="identity"><i id="presenceDot"></i><strong id="ownerEmail">Signed out</strong></span>
+        <button id="openChat" class="ghost" type="button">Open Veil Chat</button>
+      </div>
+    </header>
+
+    <section id="authCard" class="auth-card">
+      <div>
+        <p class="kicker">Owner authentication</p>
+        <h2>Take the throne</h2>
+        <p>Sign in with the owner account whose UID is stored in <code>kingdom/config</code>.</p>
+      </div>
+      <label>Email<input id="email" type="email" autocomplete="username" placeholder="Owner email"></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Password"></label>
+      <button id="signIn" type="button">Sign in securely</button>
+      <p class="fine">The password goes directly to Firebase Authentication and is not saved in the companion settings.</p>
     </section>
-    <section id="presenceCard" class="card hidden">
-      <div class="identity"><span id="presenceDot"></span><strong id="ownerEmail">Signed in</strong></div>
-      <label>Status<select id="status"><option value="online">Online</option><option value="busy">Busy</option><option value="sleeping">Sleeping</option><option value="offline">Offline</option></select></label>
-      <label>Decree<input id="message" maxlength="120" placeholder="What visitors see at the throne"></label>
-      <label>Veil contact UID<input id="contactUid" maxlength="128" placeholder="Paste the UID from your Veil friend link"></label>
-      <button id="publish">Publish to the throne</button>
-      <button id="signOut" class="secondary">Sign out</button>
-    </section>
-    <section class="card">
-      <h2>Audience messages</h2>
-      <div id="audienceInbox" class="inbox"><p class="fine">Sign in to watch throne petitions.</p></div>
-      <input id="chatUrl" type="url" placeholder="https://your-site/veil-chat/?audience=1">
-      <div class="row"><button id="saveChat" class="secondary">Save Veil URL</button><button id="openChat" class="secondary">Open Veil</button></div>
-      <label class="check"><input id="startup" type="checkbox"> Start companion when I sign into Windows</label>
-      <p id="notice" class="fine"></p>
-    </section>
-  </main>
+
+    <main id="workspace" class="workspace hidden">
+      <aside class="left-rail panel">
+        <section class="presence-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">Throne presence</p><h2>Public status</h2></div>
+            <button id="signOut" class="icon-button" type="button" title="Sign out">Sign out</button>
+          </div>
+          <div class="presence-grid">
+            <label>Status
+              <select id="status">
+                <option value="online">Online</option>
+                <option value="busy">Busy</option>
+                <option value="sleeping">Sleeping</option>
+                <option value="offline">Offline</option>
+              </select>
+            </label>
+            <label>Decree<input id="message" maxlength="120" placeholder="What visitors see at the throne"></label>
+            <label>Owner Veil UID<input id="contactUid" maxlength="128" placeholder="UID from your Veil contact link"></label>
+          </div>
+          <button id="publish" type="button">Publish presence</button>
+        </section>
+
+        <section class="thread-panel">
+          <div class="section-heading compact">
+            <div><p class="eyebrow">Audience inbox</p><h2>Conversations</h2></div>
+            <span id="threadCount" class="count-badge">0</span>
+          </div>
+          <div id="threadList" class="thread-list">
+            <p class="empty-state">No audience petitions yet.</p>
+          </div>
+        </section>
+      </aside>
+
+      <section class="conversation panel">
+        <header class="conversation-head">
+          <div>
+            <p class="eyebrow">Private audience</p>
+            <h2 id="conversationTitle">Choose a visitor</h2>
+            <p id="conversationMeta">Select a conversation or an online visitor to send Royal Mail.</p>
+          </div>
+          <button id="copyActiveCode" class="ghost small" type="button" disabled>Copy code</button>
+        </header>
+        <div id="conversationMessages" class="message-stream" aria-live="polite">
+          <div class="conversation-placeholder">
+            <span aria-hidden="true">♜</span>
+            <h3>No audience selected</h3>
+            <p>Incoming petitions and your temporary replies appear here as one timeline.</p>
+          </div>
+        </div>
+        <form id="replyForm" class="composer">
+          <textarea id="replyText" maxlength="500" rows="3" placeholder="Write a temporary message from the sovereign…" disabled></textarea>
+          <div class="composer-row">
+            <label>Disappear after
+              <select id="replyTtl" disabled>
+                <option value="300000">5 minutes</option>
+                <option value="900000" selected>15 minutes</option>
+                <option value="3600000">1 hour</option>
+                <option value="21600000">6 hours</option>
+                <option value="86400000">24 hours</option>
+              </select>
+            </label>
+            <button id="sendReply" type="submit" disabled>Send Royal Mail</button>
+          </div>
+          <p class="fine">Visitors see a temporary preview in the castle sidebar and the message inside Veil Chat. Use Veil Chat for durable encrypted conversation.</p>
+        </form>
+      </section>
+
+      <aside class="right-rail panel">
+        <section class="online-panel">
+          <div class="section-heading compact">
+            <div><p class="eyebrow">Live court</p><h2>Online now</h2></div>
+            <span id="onlineCount" class="count-badge live">0</span>
+          </div>
+          <label class="search-field"><span>Search</span><input id="userSearch" type="search" maxlength="40" placeholder="Name or Veil code"></label>
+          <div id="onlineUsers" class="online-list">
+            <p class="empty-state">Waiting for visitor heartbeats.</p>
+          </div>
+        </section>
+
+        <section class="settings-panel">
+          <div class="section-heading compact"><div><p class="eyebrow">Desktop</p><h2>Companion settings</h2></div></div>
+          <label>Deployed Veil Chat URL<input id="chatUrl" type="url" placeholder="https://your-site/veil-chat/?audience=1"></label>
+          <button id="saveChat" class="ghost" type="button">Save Veil URL</button>
+          <label class="check"><input id="startup" type="checkbox"><span>Start companion when Windows signs in</span></label>
+          <p id="notice" class="notice" role="status"></p>
+        </section>
+      </aside>
+    </main>
+  </div>
+
   <script src="firebase-config.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>

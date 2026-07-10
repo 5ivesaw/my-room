@@ -26,7 +26,7 @@ function trustedChatOrigin() {
 }
 function createDashboard() {
   dashboard = new BrowserWindow({
-    width: 460, height: 660, minWidth: 380, minHeight: 540, show: false,
+    width: 1280, height: 820, minWidth: 900, minHeight: 620, show: false,
     title: 'Kingdom Companion', backgroundColor: '#080509',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
@@ -67,12 +67,13 @@ function openChat(show = true) {
   if (show) { chatWindow.show(); chatWindow.focus(); }
 }
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'my-room-icon.svg'));
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'kingdom-companion.png'));
+  if (!icon.isEmpty()) icon.setTemplateImage(false);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip('Kingdom Companion');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Presence & status', click: () => { dashboard.show(); dashboard.focus(); } },
-    { label: 'Audience messages', click: () => openChat(true) },
+    { label: 'Royal inbox & presence', click: () => { dashboard.show(); dashboard.focus(); } },
+    { label: 'Open Veil Chat', click: () => openChat(true) },
     { type: 'separator' },
     { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
   ]));

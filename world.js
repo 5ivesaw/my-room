@@ -205,10 +205,48 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     floor.position.set(0, 0, ROOM_CENTER_Z);
     scene.add(floor);
 
-    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), ceilingMat);
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.set(0, 4, ROOM_CENTER_Z);
-    scene.add(ceiling);
+    // The throne needs a taller rear vault, but the rest of the hall keeps the
+    // lower ceiling so the castle still feels compact instead of cavernous.
+    const CEILING_Y = 4;
+    const THRONE_VAULT_Y = 6.15;
+    const THRONE_VAULT_FRONT_Z = -3.1;
+    const THRONE_VAULT_HALF_X = 3.45;
+
+    const frontCeilingDepth = ROOM_FRONT_Z - THRONE_VAULT_FRONT_Z;
+    const frontCeiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, frontCeilingDepth), ceilingMat);
+    frontCeiling.rotation.x = Math.PI / 2;
+    frontCeiling.position.set(0, CEILING_Y, (ROOM_FRONT_Z + THRONE_VAULT_FRONT_Z) / 2);
+    scene.add(frontCeiling);
+
+    const rearDepth = THRONE_VAULT_FRONT_Z - ROOM_BACK_Z;
+    const rearSideWidth = Math.max(0.01, (ROOM_WIDTH - THRONE_VAULT_HALF_X * 2) / 2);
+    for (const side of [-1, 1]) {
+        const sideCeiling = new THREE.Mesh(new THREE.PlaneGeometry(rearSideWidth, rearDepth), ceilingMat);
+        sideCeiling.rotation.x = Math.PI / 2;
+        sideCeiling.position.set(side * (THRONE_VAULT_HALF_X + rearSideWidth / 2), CEILING_Y, (ROOM_BACK_Z + THRONE_VAULT_FRONT_Z) / 2);
+        scene.add(sideCeiling);
+    }
+
+    const throneVault = new THREE.Mesh(new THREE.PlaneGeometry(THRONE_VAULT_HALF_X * 2, rearDepth), ceilingMat);
+    throneVault.rotation.x = Math.PI / 2;
+    throneVault.position.set(0, THRONE_VAULT_Y, (ROOM_BACK_Z + THRONE_VAULT_FRONT_Z) / 2);
+    scene.add(throneVault);
+
+    const vaultTransition = new THREE.Mesh(new THREE.PlaneGeometry(THRONE_VAULT_HALF_X * 2, THRONE_VAULT_Y - CEILING_Y), wallMat);
+    vaultTransition.position.set(0, (CEILING_Y + THRONE_VAULT_Y) / 2, THRONE_VAULT_FRONT_Z);
+    vaultTransition.rotation.y = Math.PI;
+    scene.add(vaultTransition);
+
+    for (const side of [-1, 1]) {
+        const vaultSide = new THREE.Mesh(new THREE.PlaneGeometry(rearDepth, THRONE_VAULT_Y - CEILING_Y), wallMat);
+        vaultSide.position.set(side * THRONE_VAULT_HALF_X, (CEILING_Y + THRONE_VAULT_Y) / 2, (ROOM_BACK_Z + THRONE_VAULT_FRONT_Z) / 2);
+        vaultSide.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+        scene.add(vaultSide);
+    }
+
+    const raisedBackWall = new THREE.Mesh(new THREE.PlaneGeometry(THRONE_VAULT_HALF_X * 2, THRONE_VAULT_Y - CEILING_Y), wallMat);
+    raisedBackWall.position.set(0, (CEILING_Y + THRONE_VAULT_Y) / 2, ROOM_BACK_Z + 0.002);
+    scene.add(raisedBackWall);
 
     const wallGeo = new THREE.PlaneGeometry(ROOM_WIDTH, 4);
     const wallBack = new THREE.Mesh(wallGeo, wallMat);
@@ -2772,6 +2810,29 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const royalSkinMat = new THREE.MeshStandardMaterial({ color: 0x8d665f, roughness: 0.68 });
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff183d });
     const faceMarkMat = new THREE.MeshBasicMaterial({ color: 0x2a0611 });
+    const hornMat = new THREE.MeshStandardMaterial({ color: 0x211315, roughness: 0.48, metalness: 0.22 });
+    const addGoatHorns = (parent, baseY, baseZ, scale = 1) => {
+        for (const side of [-1, 1]) {
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(side * 0.22 * scale, baseY, baseZ),
+                new THREE.Vector3(side * 0.43 * scale, baseY + 0.18 * scale, baseZ - 0.04 * scale),
+                new THREE.Vector3(side * 0.58 * scale, baseY + 0.38 * scale, baseZ - 0.16 * scale),
+                new THREE.Vector3(side * 0.56 * scale, baseY + 0.61 * scale, baseZ - 0.22 * scale),
+                new THREE.Vector3(side * 0.39 * scale, baseY + 0.78 * scale, baseZ - 0.15 * scale)
+            ]);
+            const horn = new THREE.Mesh(new THREE.TubeGeometry(curve, 18, 0.055 * scale, 6, false), hornMat);
+            parent.add(horn);
+            const tip = new THREE.Mesh(new THREE.ConeGeometry(0.055 * scale, 0.22 * scale, 6), hornMat);
+            tip.position.copy(curve.getPoint(1));
+            tip.rotation.z = side * 0.52;
+            tip.rotation.x = -0.3;
+            parent.add(tip);
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.073 * scale, 0.018 * scale, 5, 10), throneGoldMat);
+            ring.position.set(side * 0.245 * scale, baseY + 0.035 * scale, baseZ - 0.01 * scale);
+            ring.rotation.y = Math.PI / 2;
+            parent.add(ring);
+        }
+    };
 
     const boneDirection = new THREE.Vector3();
     const boneMidpoint = new THREE.Vector3();
@@ -2908,27 +2969,84 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     crestSpikes.instanceMatrix.needsUpdate = true;
     throneGroup.add(crestSpikes);
 
-    // Skull mound around the platform, made with one draw call.
-    const skullPileGeo = new THREE.DodecahedronGeometry(0.19, 0);
-    const skullPile = new THREE.InstancedMesh(skullPileGeo, boneMat, 34);
-    const skullMatrix = new THREE.Matrix4();
-    for (let i = 0; i < 34; i++) {
-        const side = i % 2 === 0 ? -1 : 1;
-        const row = Math.floor(i / 10);
-        const x = side * (1.72 + (i % 5) * 0.36);
-        const y = 0.08 + row * 0.22 + (i % 3) * 0.025;
-        const z = 1.25 + (Math.floor(i / 2) % 5) * 0.34;
-        const scale = 0.78 + (i % 4) * 0.06;
-        skullMatrix.compose(
-            new THREE.Vector3(x, y, z),
-            new THREE.Quaternion().setFromEuler(new THREE.Euler((i % 3) * 0.22, (i % 7) * 0.41, (i % 5) * 0.15)),
-            new THREE.Vector3(scale, scale * 0.9, scale)
-        );
-        skullPile.setMatrixAt(i, skullMatrix);
+    // Grounded skull piles. Their centers are generated on a contact lattice:
+    // every base skull rests exactly on y=0 and every upper skull is positioned
+    // above four supports without intersecting them. Separate instanced crania,
+    // jaws and sockets keep the piles readable while staying cheap to render.
+    const skullPlacements = [];
+    const floorLocalY = -throneGroup.position.y;
+    const skullRadius = 0.17;
+    for (const side of [-1, 1]) {
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const scale = 0.9 + ((row + col) % 3) * 0.035;
+                skullPlacements.push({
+                    x: side * (2.72 + col * 0.37),
+                    // The cranium has a 1.06 vertical scale, so its exact
+                    // lowest point is y=0 after the throne-group transform.
+                    y: floorLocalY + skullRadius * 1.06 * scale,
+                    z: 1.42 + row * 0.37,
+                    yaw: side * 0.22 + (row * 3 + col) * 0.41,
+                    scale
+                });
+            }
+        }
+        for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 2; col++) {
+                skullPlacements.push({
+                    x: side * (2.905 + col * 0.37),
+                    // Contact height from the half-cell horizontal offset; this
+                    // makes the upper skulls rest on the lower lattice instead of hovering.
+                    y: floorLocalY + 0.36,
+                    z: 1.605 + row * 0.37,
+                    yaw: side * -0.18 + (row * 2 + col) * 0.57,
+                    scale: 0.91
+                });
+            }
+        }
     }
-    skullPile.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-    skullPile.instanceMatrix.needsUpdate = true;
-    throneGroup.add(skullPile);
+
+    const pileCrania = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 9, 7), boneMat, skullPlacements.length);
+    const pileJaws = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.09, 0.14), boneMat, skullPlacements.length);
+    const pileSockets = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 6, 4), castleIronMat, skullPlacements.length * 2);
+    const pileDummy = new THREE.Object3D();
+    const pileOffset = new THREE.Vector3();
+    const pileQuaternion = new THREE.Quaternion();
+    const pileEuler = new THREE.Euler();
+    let socketIndex = 0;
+
+    skullPlacements.forEach((placement, index) => {
+        pileEuler.set(0.05 * ((index % 3) - 1), placement.yaw, 0.04 * ((index % 5) - 2));
+        pileQuaternion.setFromEuler(pileEuler);
+
+        pileDummy.position.set(placement.x, placement.y, placement.z);
+        pileDummy.quaternion.copy(pileQuaternion);
+        pileDummy.scale.set(placement.scale * 0.94, placement.scale * 1.06, placement.scale * 0.84);
+        pileDummy.updateMatrix();
+        pileCrania.setMatrixAt(index, pileDummy.matrix);
+
+        pileOffset.set(0, -0.15, 0.025).applyQuaternion(pileQuaternion).multiplyScalar(placement.scale);
+        pileDummy.position.set(placement.x, placement.y, placement.z).add(pileOffset);
+        pileDummy.quaternion.copy(pileQuaternion);
+        pileDummy.scale.setScalar(placement.scale);
+        pileDummy.updateMatrix();
+        pileJaws.setMatrixAt(index, pileDummy.matrix);
+
+        for (const eyeSide of [-1, 1]) {
+            pileOffset.set(eyeSide * 0.058, 0.026, 0.145).applyQuaternion(pileQuaternion).multiplyScalar(placement.scale);
+            pileDummy.position.set(placement.x, placement.y, placement.z).add(pileOffset);
+            pileDummy.quaternion.copy(pileQuaternion);
+            pileDummy.scale.setScalar(placement.scale);
+            pileDummy.updateMatrix();
+            pileSockets.setMatrixAt(socketIndex++, pileDummy.matrix);
+        }
+    });
+
+    for (const mesh of [pileCrania, pileJaws, pileSockets]) {
+        mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+        mesh.instanceMatrix.needsUpdate = true;
+        throneGroup.add(mesh);
+    }
 
     // ONLINE PHASE: relaxed, intimidating sovereign with one hand at the chin.
     const kingGroup = new THREE.Group();
@@ -3011,6 +3129,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         crownPoint.position.set(x, x === 0 ? 3.22 : 3.14, 0.72);
         kingGroup.add(crownPoint);
     }
+    addGoatHorns(kingGroup, 2.76, 0.73, 1.0);
 
     // Arms: left draped over armrest, right elbow planted with hand at chin.
     addBone(kingGroup, new THREE.Vector3(-0.48, 1.9, 0.72), new THREE.Vector3(-0.76, 1.5, 0.98), 0.11, royalPurpleMat);
@@ -3092,6 +3211,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         point.position.set(x, x === 0 ? 3.27 : 3.18, 0.78);
         offlineGroup.add(point);
     }
+    addGoatHorns(offlineGroup, 2.76, 0.78, 1.04);
     const offlineEyeMat = new THREE.MeshBasicMaterial({ color: 0x8b001d });
     for (const x of [-0.11, 0.11]) {
         const ember = new THREE.Mesh(new THREE.SphereGeometry(0.033, 7, 5), offlineEyeMat);
@@ -3236,7 +3356,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     const servantStandingPos = new THREE.Vector3(floorLayout.piano.x - 1.18, 0, floorLayout.piano.z - 1.30);
-    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.88, 0, floorLayout.piano.z);
+    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.97, 0, floorLayout.piano.z);
     servantGroup.position.copy(servantStandingPos);
     servantGroup.rotation.y = -0.48;
 
@@ -3357,8 +3477,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
                 const knee = servantKnees[i];
                 const ankle = servantAnkles[i];
                 if (servantActive) {
-                    knee.set(side * 0.14, 0.52, 0.34);
-                    ankle.set(side * 0.17, 0.18, 0.18);
+                    // Hip stays over the cushion; knees and ankles project beyond
+                    // the front edge so no leg segment passes through the bench.
+                    knee.set(side * 0.16, 0.64, 0.52);
+                    ankle.set(side * 0.18, 0.09, 0.79);
                 } else {
                     knee.set(side * 0.11, 0.42, 0);
                     ankle.set(side * 0.11, 0.08, 0);
@@ -3429,7 +3551,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     // Player/camera collision uses the same solved footprints as rendering, so
     // the camera cannot enter the throne stairs or any major furniture.
     const collisionBoxes = [
-        { id: 'throne', minX: -3.28, maxX: 3.28, minZ: -7.46, maxZ: -2.92 },
+        { id: 'throne', minX: -3.72, maxX: 3.72, minZ: -7.46, maxZ: -2.92 },
         { id: 'bed', minX: floorLayout.bed.x - 1.16, maxX: floorLayout.bed.x + 1.16, minZ: floorLayout.bed.z - 1.58, maxZ: floorLayout.bed.z + 1.58 },
         { id: 'desk', minX: floorLayout.desk.x - 1.62, maxX: floorLayout.desk.x + 1.62, minZ: floorLayout.desk.z - 0.84, maxZ: floorLayout.desk.z + 0.54 },
         { id: 'fridge', minX: floorLayout.fridge.x - 0.52, maxX: floorLayout.fridge.x + 0.52, minZ: floorLayout.fridge.z - 0.52, maxZ: floorLayout.fridge.z + 0.52 },
