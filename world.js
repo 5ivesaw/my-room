@@ -6,6 +6,12 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const updatables = [];
     const cullables = [];
     const performanceOptions = { quality: 'performance', pcPreview: 'still' };
+    const ROOM_HALF_X = 6;
+    const ROOM_FRONT_Z = 6;
+    const ROOM_BACK_Z = -8;
+    const ROOM_WIDTH = ROOM_HALF_X * 2;
+    const ROOM_DEPTH = ROOM_FRONT_Z - ROOM_BACK_Z;
+    const ROOM_CENTER_Z = (ROOM_FRONT_Z + ROOM_BACK_Z) / 2;
 
     function trackCullable(object, radius = 1.5) {
         cullables.push({ object, radius });
@@ -27,28 +33,33 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     const wallpaperTex = makeCanvasTexture(256, 256, (ctx, w, h) => {
-        ctx.fillStyle = '#565263';
+        ctx.fillStyle = '#211a20';
         ctx.fillRect(0, 0, w, h);
-        for (let x = 0; x < w; x += 32) {
-            ctx.fillStyle = x % 64 === 0 ? '#605a70' : '#4b4857';
-            ctx.fillRect(x, 0, 5, h);
-            ctx.fillStyle = '#746f82';
-            ctx.fillRect(x + 14, 0, 1, h);
-        }
-        ctx.strokeStyle = 'rgba(225,220,240,0.16)';
-        ctx.lineWidth = 2;
-        for (let y = 22; y < h; y += 52) {
-            for (let x = 18; x < w; x += 52) {
-                ctx.beginPath();
-                ctx.moveTo(x, y - 8);
-                ctx.lineTo(x + 8, y);
-                ctx.lineTo(x, y + 8);
-                ctx.lineTo(x - 8, y);
-                ctx.closePath();
-                ctx.stroke();
+        const courseH = 42;
+        const blockW = 72;
+        for (let row = 0, y = 0; y < h; row++, y += courseH) {
+            const offset = row % 2 ? -blockW / 2 : 0;
+            for (let x = offset; x < w; x += blockW) {
+                const shade = 29 + ((row * 17 + Math.floor(x / blockW) * 11) % 12);
+                ctx.fillStyle = `rgb(${shade + 7}, ${shade}, ${shade + 5})`;
+                ctx.fillRect(x + 3, y + 3, blockW - 6, courseH - 6);
+                const grad = ctx.createLinearGradient(x, y, x + blockW, y + courseH);
+                grad.addColorStop(0, 'rgba(255,220,225,0.08)');
+                grad.addColorStop(0.55, 'rgba(255,255,255,0.01)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.24)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(x + 3, y + 3, blockW - 6, courseH - 6);
             }
         }
-    }, 4, 2);
+        ctx.strokeStyle = 'rgba(7,4,7,0.72)';
+        ctx.lineWidth = 4;
+        for (let y = 0; y <= h; y += courseH) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+        }
+    }, 5, 4);
 
     const floorTex = makeCanvasTexture(256, 256, (ctx, w, h) => {
         ctx.fillStyle = '#24272b';
@@ -116,9 +127,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }, 2, 1);
 
     // Materials
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x777184, map: wallpaperTex, roughness: 0.78 });
-    const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x5f5b70, map: ceilingTex, roughness: 0.7 });
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorTex, roughness: 0.18, metalness: 0.28 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x8d7c86, map: wallpaperTex, roughness: 0.92, metalness: 0.04 });
+    const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x34303a, map: ceilingTex, roughness: 0.88, metalness: 0.06 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x9b9298, map: floorTex, roughness: 0.72, metalness: 0.16 });
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: woodTex, roughness: 0.55 });
     const bedMat = new THREE.MeshStandardMaterial({ color: 0x263646, roughness: 0.72 });
     const blanketMat = new THREE.MeshStandardMaterial({ color: 0x516b88, roughness: 0.68 });
@@ -128,71 +139,70 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const catOrangeMat = new THREE.MeshStandardMaterial({ color: 0xe8873a, roughness: 0.9 });
 
     // ============ ROOM SHELL ============
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), floorMat);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = 0;
+    floor.position.set(0, 0, ROOM_CENTER_Z);
     scene.add(floor);
 
-    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), ceilingMat);
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), ceilingMat);
     ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = 4;
+    ceiling.position.set(0, 4, ROOM_CENTER_Z);
     scene.add(ceiling);
 
-    const wallGeo = new THREE.PlaneGeometry(8, 4);
+    const wallGeo = new THREE.PlaneGeometry(ROOM_WIDTH, 4);
     const wallBack = new THREE.Mesh(wallGeo, wallMat);
-    wallBack.position.set(0, 2, -4);
+    wallBack.position.set(0, 2, ROOM_BACK_Z);
     scene.add(wallBack);
 
     const wallFront = new THREE.Mesh(wallGeo, wallMat);
-    wallFront.position.set(0, 2, 4);
+    wallFront.position.set(0, 2, ROOM_FRONT_Z);
     wallFront.rotation.y = Math.PI;
     scene.add(wallFront);
 
-    const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), wallMat);
-    wallRight.position.set(4, 2, 0);
+    const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, 4), wallMat);
+    wallRight.position.set(ROOM_HALF_X, 2, ROOM_CENTER_Z);
     wallRight.rotation.y = -Math.PI / 2;
     scene.add(wallRight);
 
-    const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), wallMat);
-    wallLeft.position.set(-4, 2, 0);
+    const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_DEPTH, 4), wallMat);
+    wallLeft.position.set(-ROOM_HALF_X, 2, ROOM_CENTER_Z);
     wallLeft.rotation.y = Math.PI / 2;
     scene.add(wallLeft);
 
     const trimMat = new THREE.MeshStandardMaterial({ color: 0x2b2220, roughness: 0.45 });
     const addTrim = (mesh) => scene.add(mesh);
-    const backBase = new THREE.Mesh(new THREE.BoxGeometry(8, 0.12, 0.08), trimMat);
-    backBase.position.set(0, 0.08, -3.96);
+    const backBase = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WIDTH, 0.12, 0.08), trimMat);
+    backBase.position.set(0, 0.08, ROOM_BACK_Z + 0.04);
     addTrim(backBase);
-    const frontBase = new THREE.Mesh(new THREE.BoxGeometry(8, 0.12, 0.08), trimMat);
-    frontBase.position.set(0, 0.08, 3.96);
+    const frontBase = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WIDTH, 0.12, 0.08), trimMat);
+    frontBase.position.set(0, 0.08, ROOM_FRONT_Z - 0.04);
     addTrim(frontBase);
-    const leftBase = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 8), trimMat);
-    leftBase.position.set(-3.96, 0.08, 0);
+    const leftBase = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, ROOM_DEPTH), trimMat);
+    leftBase.position.set(-ROOM_HALF_X + 0.04, 0.08, ROOM_CENTER_Z);
     addTrim(leftBase);
-    const rightBase = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 8), trimMat);
-    rightBase.position.set(3.96, 0.08, 0);
+    const rightBase = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, ROOM_DEPTH), trimMat);
+    rightBase.position.set(ROOM_HALF_X - 0.04, 0.08, ROOM_CENTER_Z);
     addTrim(rightBase);
-    const backCrown = new THREE.Mesh(new THREE.BoxGeometry(8, 0.08, 0.08), trimMat);
-    backCrown.position.set(0, 3.92, -3.96);
+    const backCrown = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WIDTH, 0.08, 0.08), trimMat);
+    backCrown.position.set(0, 3.92, ROOM_BACK_Z + 0.04);
     addTrim(backCrown);
-    const frontCrown = new THREE.Mesh(new THREE.BoxGeometry(8, 0.08, 0.08), trimMat);
-    frontCrown.position.set(0, 3.92, 3.96);
+    const frontCrown = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WIDTH, 0.08, 0.08), trimMat);
+    frontCrown.position.set(0, 3.92, ROOM_FRONT_Z - 0.04);
     addTrim(frontCrown);
-    const leftCrown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 8), trimMat);
-    leftCrown.position.set(-3.96, 3.92, 0);
+    const leftCrown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, ROOM_DEPTH), trimMat);
+    leftCrown.position.set(-ROOM_HALF_X + 0.04, 3.92, ROOM_CENTER_Z);
     addTrim(leftCrown);
-    const rightCrown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 8), trimMat);
-    rightCrown.position.set(3.96, 3.92, 0);
+    const rightCrown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, ROOM_DEPTH), trimMat);
+    rightCrown.position.set(ROOM_HALF_X - 0.04, 3.92, ROOM_CENTER_Z);
     addTrim(rightCrown);
 
-    const ceilingPanelMat = new THREE.MeshStandardMaterial({ color: 0xb7c6d6, emissive: 0x7ea8ff, emissiveIntensity: 0.18, roughness: 0.35 });
-    for (const x of [-1.4, 1.4]) {
-        const panel = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.035, 0.42), ceilingPanelMat);
-        panel.position.set(x, 3.975, -0.35);
-        scene.add(panel);
-        const glow = new THREE.PointLight(0xbfd8ff, 0.55, 5.5, 2);
-        glow.position.set(x, 3.65, -0.35);
-        scene.add(glow);
+    const ceilingPanelMat = new THREE.MeshStandardMaterial({ color: 0x241016, emissive: 0x5c0714, emissiveIntensity: 0.28, roughness: 0.68, metalness: 0.28 });
+    for (const z of [-5.15, -1.35, 2.45]) {
+        for (const x of [-2.05, 2.05]) {
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.04, 0.32), ceilingPanelMat);
+            panel.position.set(x, 3.975, z);
+            scene.add(panel);
+        }
     }
 
     // ============ WALL SCONCE LIGHTS (Performance optimized) ============
@@ -216,19 +226,20 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         scene.add(sconce);
     }
 
-    createWallLight(-3.9, 3, 2, Math.PI / 2);
-    createWallLight(-3.9, 3, -2, Math.PI / 2);
-    createWallLight(3.9, 3, 0, -Math.PI / 2);
-    createWallLight(0, 3, -3.9, 0);
+    createWallLight(-5.9, 3, 4.0, Math.PI / 2);
+    createWallLight(-5.9, 3, -3.4, Math.PI / 2);
+    createWallLight(5.9, 3, 3.4, -Math.PI / 2);
+    createWallLight(5.9, 3, -3.8, -Math.PI / 2);
+    createWallLight(0, 3, -7.9, 0);
 
     // Single central room light instead of 4 separate point lights (Massive performance boost)
     const roomLight = new THREE.PointLight(0xffddaa, 3.2, 22, 1);
-    roomLight.position.set(0, 3, 0);
+    roomLight.position.set(0, 3, -1.0);
     scene.add(roomLight);
 
     // ============ WALL SWITCHES ============
     const switchGroup = new THREE.Group();
-    switchGroup.position.set(1.5, 1.4, 3.93);
+    switchGroup.position.set(1.5, 1.4, ROOM_FRONT_Z - 0.07);
     
     // Panel (made brighter so it's visible)
     const switchPanel = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0xcccccc, emissive: 0x222222 }));
@@ -359,7 +370,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ WINDOW RAIN SYSTEM ============
     const windowGroup = new THREE.Group();
-    windowGroup.position.set(-3.93, 2.2, 0);
+    windowGroup.position.set(-5.93, 2.2, -2.1);
     windowGroup.rotation.y = Math.PI / 2;
 
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.5 });
@@ -429,10 +440,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const rainGeo = new THREE.BufferGeometry();
     const rainPositions = new Float32Array(rainCount * 3);
     for(let i=0; i<rainCount; i++) {
-        // Position outside the window (Window is at X = -3.93)
-        rainPositions[i*3] = -4.2 - Math.random() * 4; // X from -4.2 to -8.2
+        // Position outside the window on the expanded castle wall.
+        rainPositions[i*3] = -6.2 - Math.random() * 4; // X from -6.2 to -10.2
         rainPositions[i*3+1] = Math.random() * 8; // Y from 0 to 8
-        rainPositions[i*3+2] = (Math.random() - 0.5) * 6; // Z from -3 to 3
+        rainPositions[i*3+2] = -2.1 + (Math.random() - 0.5) * 6; // near the moved window
     }
     rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
     const rainMat = new THREE.PointsMaterial({ color: 0x99aaff, size: 0.03, transparent: true, opacity: 0.6 });
@@ -469,7 +480,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ BED ============
     const bedGroup = new THREE.Group();
-    bedGroup.position.set(-3.0, 0, -0.72);
+    bedGroup.position.set(-4.35, 0, -6.0);
+    bedGroup.rotation.y = Math.PI;
 
     const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(2, 0.45, 3), woodMat);
     bedFrame.position.y = 0.25;
@@ -517,8 +529,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const radioGroup = new THREE.Group();
     // On the gaming desk beside the PC tower, not beside the bed.
     // Fridge top is around y=1.40, so the radio sits above it without clipping.
-    radioGroup.position.set(-3.45, 1.56, 0.55);
-    radioGroup.rotation.y = 0;
+    radioGroup.position.set(-5.35, 1.56, 0.75);
+    // Face the same direction as the refrigerator door, toward the room.
+    radioGroup.rotation.y = Math.PI;
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
     const radioGlowMat = new THREE.MeshBasicMaterial({ color: 0x36d6ff });
@@ -665,7 +678,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ DESK ============
     const deskGroup = new THREE.Group();
-    deskGroup.position.set(2.1, 0, 2.08);
+    deskGroup.position.set(4.25, 0, 3.55);
 
     const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.5), woodMat);
     deskTop.position.y = 0.9;
@@ -981,19 +994,19 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         mesh: chairSeat,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(2.1, 0, 3.08),
-        deskLookAt: new THREE.Vector3(2.1, 1.3, 1.68),
+        chairWorldPos: new THREE.Vector3(4.25, 0, 4.55),
+        deskLookAt: new THREE.Vector3(4.25, 1.3, 3.15),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(1.18, 1.5, 3.02)
+        chairExitPos: new THREE.Vector3(3.08, 1.5, 4.78)
     });
     interactables.push({
         mesh: chairBack,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(2.1, 0, 3.08),
-        deskLookAt: new THREE.Vector3(2.1, 1.3, 1.68),
+        chairWorldPos: new THREE.Vector3(4.25, 0, 4.55),
+        deskLookAt: new THREE.Vector3(4.25, 1.3, 3.15),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(1.18, 1.5, 3.02)
+        chairExitPos: new THREE.Vector3(3.08, 1.5, 4.78)
     });
 
     // Lamp
@@ -1041,7 +1054,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ DOOR ============
     const doorGroup = new THREE.Group();
-    doorGroup.position.set(0, 0, 3.95);
+    doorGroup.position.set(0, 0, ROOM_FRONT_Z - 0.05);
 
     const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 0.1), woodMat);
     door.position.y = 1.2;
@@ -1096,7 +1109,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ CEILING FAN ============
     const fanGroup = new THREE.Group();
-    fanGroup.position.set(0, 3.9, 2.15);
+    fanGroup.position.set(0, 3.9, 3.65);
 
     const fanMount = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.15, 12), metalMat);
     fanGroup.add(fanMount);
@@ -1144,7 +1157,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ ORANGE CAT ============
     const catGroup = new THREE.Group();
-    catGroup.position.set(-3.05, 0.96, 2.9);
+    catGroup.position.set(-4.72, 0.96, -5.42);
 
     const catBody = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.7), catOrangeMat);
     catBody.position.y = 0.125;
@@ -1231,7 +1244,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     ];
 
     const catCamPos = new THREE.Vector3(-2.0, 1.35, 1.65);
-    const catLookAt = new THREE.Vector3(-3.05, 1.05, 2.9);
+    const catLookAt = new THREE.Vector3(-4.72, 1.05, -5.42);
 
     const triggerMeow = () => {
         if (sfx) {
@@ -1399,8 +1412,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ FULL DIGITAL PIANO ============
     const pianoGroup = new THREE.Group();
-    pianoGroup.position.set(-2.2, 0, 2.55);
-    pianoGroup.rotation.y = -Math.PI / 2;
+    pianoGroup.position.set(-4.35, 0, 4.1);
+    // Keyboard faces the central hall; the bench remains accessible from the aisle.
+    pianoGroup.rotation.y = Math.PI / 2;
     pianoGroup.scale.set(1.0, 1.0, 1.0);
 
     const pianoGlossMat = new THREE.MeshStandardMaterial({ color: 0x080706, roughness: 0.18, metalness: 0.08 });
@@ -2014,8 +2028,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     // Add interaction to sit
-    const pianoSeatPos = new THREE.Vector3(-3.02, 0, 2.55);
-    const pianoViewTarget = new THREE.Vector3(-1.36, 1.05, 2.55);
+    const pianoSeatPos = new THREE.Vector3(-3.35, 0, 4.1);
+    const pianoViewTarget = new THREE.Vector3(-4.92, 1.05, 4.1);
     for (let km of pianoKeyMeshes) {
         interactables.push({ mesh: km, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
     }
@@ -2113,7 +2127,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ MINI FRIDGE ============
     const fridgeGroup = new THREE.Group();
-    fridgeGroup.position.set(-3.45, 0, 0.55);
+    fridgeGroup.position.set(-5.35, 0, 0.75);
     fridgeGroup.rotation.y = Math.PI / 2; // Face into the hall
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0xe7e9ec, roughness: 0.28, metalness: 0.08 });
@@ -2291,8 +2305,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     interactables.push({ mesh: fridgeBody, action: () => fridgeInteractable.action(), get label() { return fridgeInteractable.label; } });
 
     // Cinematic targets for fridge items
-    const fridgeCamPos = new THREE.Vector3(-2.48, 1.3, 0.55);
-    const fridgeLookAt = new THREE.Vector3(-3.48, 1.3, 0.55);
+    const fridgeCamPos = new THREE.Vector3(-4.32, 1.3, 1.42);
+    const fridgeLookAt = new THREE.Vector3(-5.38, 1.3, 0.78);
 
     const grabItemAction = (item) => {
         if (!fridgeOpen || !item.available) return;
@@ -2431,11 +2445,13 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         new THREE.PlaneGeometry(2.1, 2.8), 
         new THREE.MeshBasicMaterial({ map: posterTex, side: THREE.DoubleSide })
     );
-    posterMesh.position.set(-2.78, 2.0, -3.98); // Back wall, left of the throne
+    posterMesh.position.set(5.93, 2.0, -2.0);
+    posterMesh.rotation.y = -Math.PI / 2;
     scene.add(posterMesh);
     const posterFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a2520, roughness: 0.45 });
     const posterFrame = new THREE.Group();
     posterFrame.position.copy(posterMesh.position);
+    posterFrame.rotation.y = posterMesh.rotation.y;
     const posterTop = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.06, 0.045), posterFrameMat);
     posterTop.position.y = 1.43;
     posterFrame.add(posterTop);
@@ -2451,9 +2467,11 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     scene.add(posterFrame);
     const posterControlMat = new THREE.MeshBasicMaterial({ visible: false });
     const posterScrollUp = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollUp.position.set(-2.78, 3.05, -3.93);
+    posterScrollUp.position.set(5.88, 3.05, -2.0);
+    posterScrollUp.rotation.y = -Math.PI / 2;
     const posterScrollDown = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollDown.position.set(-2.78, 0.95, -3.93);
+    posterScrollDown.position.set(5.88, 0.95, -2.0);
+    posterScrollDown.rotation.y = -Math.PI / 2;
     scene.add(posterScrollUp, posterScrollDown);
     interactables.push({
         mesh: posterScrollUp,
@@ -2475,110 +2493,175 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     });
 
     // ============ THE SOVEREIGN'S GOTHIC KINGDOM ============
-    // Compact castle shell: the original features are preserved, but the room now reads as a hall.
+    // The full 12 x 14 room is now one continuous castle hall. The central aisle stays
+    // clear while every original room feature sits in a deliberate side alcove.
     const castleGroup = new THREE.Group();
     castleGroup.name = 'gothic-castle-overhaul';
     scene.add(castleGroup);
 
-    const castleStoneMat = new THREE.MeshStandardMaterial({ color: 0x151116, roughness: 0.9, metalness: 0.08 });
-    const castleStoneAltMat = new THREE.MeshStandardMaterial({ color: 0x241820, roughness: 0.82, metalness: 0.12 });
+    const castleStoneMat = new THREE.MeshStandardMaterial({ color: 0x151116, roughness: 0.92, metalness: 0.06 });
+    const castleStoneAltMat = new THREE.MeshStandardMaterial({ color: 0x2a1c24, roughness: 0.84, metalness: 0.1 });
     const castleIronMat = new THREE.MeshStandardMaterial({ color: 0x130d10, roughness: 0.32, metalness: 0.82 });
-    const castleRedMat = new THREE.MeshStandardMaterial({ color: 0x42030b, emissive: 0x240006, emissiveIntensity: 0.35, roughness: 0.7 });
+    const castleRedMat = new THREE.MeshStandardMaterial({ color: 0x42030b, emissive: 0x240006, emissiveIntensity: 0.38, roughness: 0.72 });
     const boneMat = new THREE.MeshStandardMaterial({ color: 0xc9bea5, roughness: 0.86 });
+    const emberMat = new THREE.MeshBasicMaterial({ color: 0xff2948 });
 
-    const gothicFloor = new THREE.Mesh(new THREE.PlaneGeometry(7.92, 7.92), castleStoneMat);
+    const gothicFloor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH - 0.08, ROOM_DEPTH - 0.08), castleStoneMat);
     gothicFloor.rotation.x = -Math.PI / 2;
-    gothicFloor.position.y = 0.012;
+    gothicFloor.position.set(0, 0.012, ROOM_CENTER_Z);
     castleGroup.add(gothicFloor);
-    for (let x = -3.5; x <= 3.5; x += 0.5) {
-        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.014, 7.9), castleStoneAltMat);
-        seam.position.set(x, 0.022, 0);
+
+    // Large stone courses make the expansion visible immediately instead of preserving
+    // the old 8 x 8 floor illusion.
+    for (let x = -ROOM_HALF_X + 0.5; x < ROOM_HALF_X; x += 0.75) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.014, ROOM_DEPTH - 0.12), castleStoneAltMat);
+        seam.position.set(x, 0.022, ROOM_CENTER_Z);
         castleGroup.add(seam);
     }
-    for (let z = -3.5; z <= 3.5; z += 0.5) {
-        const seam = new THREE.Mesh(new THREE.BoxGeometry(7.9, 0.014, 0.012), castleStoneAltMat);
+    for (let z = ROOM_BACK_Z + 0.5; z < ROOM_FRONT_Z; z += 0.75) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(ROOM_WIDTH - 0.12, 0.014, 0.012), castleStoneAltMat);
         seam.position.set(0, 0.023, z);
         castleGroup.add(seam);
     }
 
-    const aisleRunner = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.022, 6.15), new THREE.MeshStandardMaterial({ color: 0x27040a, emissive: 0x180005, emissiveIntensity: 0.18, roughness: 0.84 }));
-    aisleRunner.position.set(0, 0.04, 0.05);
+    const aisleFrontZ = 5.18;
+    const aisleBackZ = -3.72;
+    const aisleLength = aisleFrontZ - aisleBackZ;
+    const aisleCenterZ = (aisleFrontZ + aisleBackZ) / 2;
+    const aisleRunner = new THREE.Mesh(
+        new THREE.BoxGeometry(1.55, 0.026, aisleLength),
+        new THREE.MeshStandardMaterial({ color: 0x2b030b, emissive: 0x190005, emissiveIntensity: 0.22, roughness: 0.86 })
+    );
+    aisleRunner.position.set(0, 0.044, aisleCenterZ);
     castleGroup.add(aisleRunner);
-    for (const x of [-0.78, 0.78]) {
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.08, 6.2), castleIronMat);
-        rail.position.set(x, 0.09, 0.05);
+    for (const x of [-0.88, 0.88]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.085, aisleLength + 0.08), castleIronMat);
+        rail.position.set(x, 0.095, aisleCenterZ);
         castleGroup.add(rail);
     }
+    for (let z = aisleBackZ + 0.42; z < aisleFrontZ; z += 1.1) {
+        const stitch = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.012, 0.045), castleIronMat);
+        stitch.position.set(0, 0.065, z);
+        castleGroup.add(stitch);
+    }
 
-    const columnPositions = [[-3.55,-3.45],[3.55,-3.45],[-3.55,3.55],[3.55,3.55],[-1.55,-2.35],[1.55,-2.35],[-1.55,1.2],[1.55,1.2]];
-    columnPositions.forEach(([x, z]) => {
+    function createCastleColumn(x, z, wallMounted = false) {
         const column = new THREE.Group();
-        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.19, 3.65, 8), castleStoneAltMat);
-        shaft.position.y = 1.85;
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.18, 8), castleIronMat);
-        base.position.y = 0.09;
-        const capital = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.16, 0.22, 8), castleIronMat);
-        capital.position.y = 3.72;
+        const shaftRadius = wallMounted ? 0.14 : 0.17;
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(shaftRadius, shaftRadius + 0.055, 3.62, 8), castleStoneAltMat);
+        shaft.position.y = 1.83;
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(shaftRadius + 0.14, shaftRadius + 0.18, 0.2, 8), castleIronMat);
+        base.position.y = 0.1;
+        const capital = new THREE.Mesh(new THREE.CylinderGeometry(shaftRadius + 0.15, shaftRadius + 0.02, 0.24, 8), castleIronMat);
+        capital.position.y = 3.7;
         column.add(shaft, base, capital);
         column.position.set(x, 0, z);
         castleGroup.add(column);
-    });
+        return column;
+    }
 
-    [-2.55, 2.55].forEach((x) => {
-        const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 1.9), castleRedMat);
-        banner.position.set(x, 2.46, -3.91);
+    // Three arch bays frame the long approach. They are wide enough to preserve the
+    // hallway and do not invade the piano, PC, refrigerator, or bed footprints.
+    const archZs = [-4.18, -0.92, 2.35];
+    for (const z of archZs) {
+        createCastleColumn(-2.38, z);
+        createCastleColumn(2.38, z);
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.95, 0.16, 0.2), castleIronMat);
+        lintel.position.set(0, 3.68, z);
+        castleGroup.add(lintel);
+        const crown = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.12, 0.24), castleRedMat);
+        crown.position.set(0, 3.48, z);
+        castleGroup.add(crown);
+    }
+
+    // Wall-mounted buttresses add depth without stealing walking space.
+    [
+        [-5.72, -3.45], [5.72, -4.0],
+        [-5.72, -0.75], [5.72, 0.35],
+        [5.72, 1.85]
+    ].forEach(([x, z]) => createCastleColumn(x, z, true));
+
+    // Throne-wall recess and banners establish a destination at the far end of the hall.
+    const throneRecess = new THREE.Mesh(new THREE.BoxGeometry(4.45, 3.72, 0.11), new THREE.MeshStandardMaterial({ color: 0x0d080c, emissive: 0x1c0208, emissiveIntensity: 0.24, roughness: 0.88 }));
+    throneRecess.position.set(0, 1.93, ROOM_BACK_Z + 0.075);
+    castleGroup.add(throneRecess);
+    for (const x of [-1.95, 1.95]) {
+        const recessPillar = new THREE.Mesh(new THREE.BoxGeometry(0.22, 3.75, 0.18), castleIronMat);
+        recessPillar.position.set(x, 1.9, ROOM_BACK_Z + 0.15);
+        castleGroup.add(recessPillar);
+    }
+    const recessCrown = new THREE.Mesh(new THREE.BoxGeometry(4.25, 0.18, 0.2), castleIronMat);
+    recessCrown.position.set(0, 3.72, ROOM_BACK_Z + 0.15);
+    castleGroup.add(recessCrown);
+
+    [-3.35, 3.35].forEach((x) => {
+        const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 2.18), castleRedMat);
+        banner.position.set(x, 2.48, ROOM_BACK_Z + 0.085);
         banner.rotation.y = Math.PI;
         castleGroup.add(banner);
-        const spear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 4), castleIronMat);
-        spear.position.set(x, 3.58, -3.86);
+        const spear = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.38, 4), castleIronMat);
+        spear.position.set(x, 3.72, ROOM_BACK_Z + 0.15);
         castleGroup.add(spear);
     });
 
+    // A single efficient chandelier lights the middle bay; the fan owns the entrance bay.
     const chandelier = new THREE.Group();
-    const chandelierRing = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.045, 8, 28), castleIronMat);
+    const chandelierRing = new THREE.Mesh(new THREE.TorusGeometry(0.74, 0.05, 8, 28), castleIronMat);
     chandelierRing.rotation.x = Math.PI / 2;
     chandelier.add(chandelierRing);
-    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 8), castleIronMat);
-    chain.position.y = 0.5;
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.95, 8), castleIronMat);
+    chain.position.y = 0.48;
     chandelier.add(chain);
     for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2;
-        const flame = new THREE.PointLight(0xb31322, 0.42, 2.2, 2);
-        flame.position.set(Math.cos(angle) * 0.72, 0.06, Math.sin(angle) * 0.72);
+        const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.18, 7), castleStoneAltMat);
+        candle.position.set(Math.cos(angle) * 0.72, 0.02, Math.sin(angle) * 0.72);
+        chandelier.add(candle);
+        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), emberMat);
+        flame.position.set(Math.cos(angle) * 0.72, 0.17, Math.sin(angle) * 0.72);
         chandelier.add(flame);
     }
-    chandelier.position.set(0, 3.05, 0.15);
+    const chandelierLight = new THREE.PointLight(0xb31322, 1.05, 6.2, 2);
+    chandelierLight.position.y = 0.1;
+    chandelier.add(chandelierLight);
+    chandelier.position.set(0, 3.05, -1.08);
     castleGroup.add(chandelier);
 
     // Throne and the online/offline sovereign effigy.
     const throneGroup = new THREE.Group();
-    throneGroup.position.set(0, 0.42, -3.26);
+    throneGroup.position.set(0, 0.52, -6.5);
     scene.add(throneGroup);
+    trackCullable(throneGroup, 3.3);
     const throneBackMat = new THREE.MeshStandardMaterial({ color: 0x1a090e, emissive: 0x240006, emissiveIntensity: 0.25, roughness: 0.5, metalness: 0.35 });
     const throneGoldMat = new THREE.MeshStandardMaterial({ color: 0x6b4b21, emissive: 0x321500, emissiveIntensity: 0.18, roughness: 0.3, metalness: 0.78 });
-    const throneBack = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.35, 0.24), throneBackMat);
-    throneBack.position.set(0, 1.45, 0.2);
+    const throneBack = new THREE.Mesh(new THREE.BoxGeometry(1.62, 2.45, 0.26), throneBackMat);
+    throneBack.position.set(0, 1.48, 0.2);
     throneGroup.add(throneBack);
-    const throneSeat = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.3, 1.02), throneBackMat);
-    throneSeat.position.set(0, 0.58, 0.5);
+    const throneSeat = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.32, 1.08), throneBackMat);
+    throneSeat.position.set(0, 0.6, 0.52);
     throneGroup.add(throneSeat);
-    [-0.82, 0.82].forEach((x) => {
-        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 1.12), throneGoldMat);
-        arm.position.set(x, 0.92, 0.46);
+    [-0.87, 0.87].forEach((x) => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.23, 1.18), throneGoldMat);
+        arm.position.set(x, 0.96, 0.48);
         throneGroup.add(arm);
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 5), throneGoldMat);
-        spike.position.set(x, 2.82, 0.18);
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.45, 5), throneGoldMat);
+        spike.position.set(x, 2.9, 0.18);
         throneGroup.add(spike);
     });
-    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.34, 2.0), castleStoneAltMat);
-    dais.position.set(0, 0.12, 0.56);
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(3.18, 0.38, 2.2), castleStoneAltMat);
+    dais.position.set(0, 0.1, 0.58);
     throneGroup.add(dais);
-    const lowerDais = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.22, 2.45), castleStoneMat);
-    lowerDais.position.set(0, -0.08, 0.72);
+    const lowerDais = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.26, 2.68), castleStoneMat);
+    lowerDais.position.set(0, -0.12, 0.78);
     throneGroup.add(lowerDais);
-    for (let i = 0; i < 3; i++) {
-        const step = new THREE.Mesh(new THREE.BoxGeometry(2.85 - i * 0.42, 0.12, 0.36), castleStoneAltMat);
-        step.position.set(0, -0.28 + i * 0.09, 1.96 + i * 0.28);
+    const stepData = [
+        { width: 3.65, y: -0.34, z: 2.18 },
+        { width: 3.18, y: -0.23, z: 2.47 },
+        { width: 2.7, y: -0.12, z: 2.76 }
+    ];
+    for (const { width, y, z } of stepData) {
+        const step = new THREE.Mesh(new THREE.BoxGeometry(width, 0.14, 0.42), castleStoneAltMat);
+        step.position.set(0, y, z);
         throneGroup.add(step);
     }
 
@@ -2587,53 +2670,53 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const royalSkinMat = new THREE.MeshStandardMaterial({ color: 0x8d7062, roughness: 0.72 });
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff102f });
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.48, 0.92, 8), royalBlackMat);
-    torso.position.set(0, 1.12, 0.48);
+    torso.position.set(0, 1.14, 0.5);
     kingGroup.add(torso);
     const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 14), royalSkinMat);
-    kingHead.position.set(0, 1.75, 0.55);
+    kingHead.position.set(0, 1.77, 0.57);
     kingGroup.add(kingHead);
     [-0.1, 0.1].forEach((x) => {
         const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), eyeMat);
-        eye.position.set(x, 1.79, 0.81);
+        eye.position.set(x, 1.81, 0.83);
         kingGroup.add(eye);
     });
     const crownBand = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.16, 8), throneGoldMat);
-    crownBand.position.set(0, 2.04, 0.55);
+    crownBand.position.set(0, 2.06, 0.57);
     kingGroup.add(crownBand);
     [-0.2, 0, 0.2].forEach((x, index) => {
         const point = new THREE.Mesh(new THREE.ConeGeometry(0.09, index === 1 ? 0.42 : 0.34, 5), throneGoldMat);
-        point.position.set(x, 2.27 + (index === 1 ? 0.04 : 0), 0.55);
+        point.position.set(x, 2.29 + (index === 1 ? 0.04 : 0), 0.57);
         kingGroup.add(point);
     });
     [-1, 1].forEach((side) => {
         const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.095, 0.68, 8), royalBlackMat);
-        upperArm.position.set(side * 0.42, 1.18, 0.68);
+        upperArm.position.set(side * 0.42, 1.2, 0.7);
         upperArm.rotation.z = side * -0.72;
         upperArm.rotation.x = 0.5;
         kingGroup.add(upperArm);
         const hand = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), royalSkinMat);
-        hand.position.set(side * 0.2, 1.57, 0.82);
+        hand.position.set(side * 0.2, 1.59, 0.84);
         kingGroup.add(hand);
     });
     throneGroup.add(kingGroup);
 
     const offlineGroup = new THREE.Group();
-    const boneBack = new THREE.Mesh(new THREE.BoxGeometry(1.28, 1.92, 0.18), boneMat);
-    boneBack.position.set(0, 1.42, 0.24);
+    const boneBack = new THREE.Mesh(new THREE.BoxGeometry(1.36, 2.0, 0.18), boneMat);
+    boneBack.position.set(0, 1.45, 0.24);
     offlineGroup.add(boneBack);
     for (let i = 0; i < 5; i++) {
         const rib = new THREE.Mesh(new THREE.TorusGeometry(0.34 + i * 0.035, 0.035, 6, 14, Math.PI), boneMat);
-        rib.position.set(0, 1.22 + i * 0.12, 0.58);
+        rib.position.set(0, 1.24 + i * 0.12, 0.6);
         rib.rotation.z = Math.PI;
         offlineGroup.add(rib);
     }
     const skull = new THREE.Mesh(new THREE.SphereGeometry(0.31, 14, 10), boneMat);
     skull.scale.set(0.9, 1.05, 0.82);
-    skull.position.set(0, 1.78, 0.62);
+    skull.position.set(0, 1.81, 0.64);
     offlineGroup.add(skull);
     [-0.105, 0.105].forEach((x) => {
         const socket = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), castleIronMat);
-        socket.position.set(x, 1.82, 0.86);
+        socket.position.set(x, 1.85, 0.88);
         offlineGroup.add(socket);
     });
     throneGroup.add(offlineGroup);
@@ -2644,8 +2727,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const plaqueCtx = plaqueCanvas.getContext('2d');
     const plaqueTexture = new THREE.CanvasTexture(plaqueCanvas);
     plaqueTexture.colorSpace = THREE.SRGBColorSpace;
-    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.5), new THREE.MeshBasicMaterial({ map: plaqueTexture, transparent: true }));
-    plaque.position.set(0, 2.72, 0.36);
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.82, 0.52), new THREE.MeshBasicMaterial({ map: plaqueTexture, transparent: true }));
+    plaque.position.set(0, 2.82, 0.38);
     throneGroup.add(plaque);
     let kingPresence = { status: 'offline', message: 'The throne stands silent.', online: false };
     function drawPresencePlaque() {
@@ -2678,21 +2761,23 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         drawPresencePlaque();
     }
     setKingPresence(kingPresence);
-    const kneelTarget = new THREE.Vector3(0, 0, -1.52);
-    const kneelLook = new THREE.Vector3(0, 2.1, -3.02);
+    const kneelTarget = new THREE.Vector3(0, 0, -3.45);
+    const kneelLook = new THREE.Vector3(0, 2.2, -6.2);
     interactables.push({
         mesh: throneSeat,
         action: 'kneelThrone',
         get label() { return kingPresence.online ? 'Kneel Before My Lord' : 'Kneel at the Bone Throne'; },
         kneelWorldPos: kneelTarget,
         kneelLookAt: kneelLook,
-        kneelExitPos: new THREE.Vector3(0.88, 1.5, -1.05)
+        kneelExitPos: new THREE.Vector3(1.18, 1.5, -3.08)
     });
 
-    // Toggleable skeletal pianist. When dismissed, he waits against the wall.
+    // Toggleable skeletal pianist. He waits beside the ominous entrance piano and
+    // crosses only a short, unobstructed distance to its aisle-facing bench.
     const servantGroup = new THREE.Group();
     servantGroup.name = 'gothic-skeleton-servant';
     scene.add(servantGroup);
+    trackCullable(servantGroup, 1.2);
     const servantSkull = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 9), boneMat);
     servantSkull.position.y = 1.55;
     servantGroup.add(servantSkull);
@@ -2719,10 +2804,10 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         leg.position.set(side * 0.12, 0.47, 0);
         servantGroup.add(leg);
     });
-    const servantWallPos = new THREE.Vector3(-3.35, 0, 2.02);
-    const servantPianoPos = new THREE.Vector3(-2.58, 0.02, 2.88);
+    const servantWallPos = new THREE.Vector3(-5.08, 0, 2.5);
+    const servantPianoPos = new THREE.Vector3(-3.28, 0.02, 4.1);
     servantGroup.position.copy(servantWallPos);
-    servantGroup.rotation.y = 1.34;
+    servantGroup.rotation.y = -Math.PI / 2;
     let servantActive = false;
     let servantNoteTimer = 0;
     let servantNoteIndex = 0;
@@ -2731,7 +2816,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         servantActive = !servantActive;
         servantNoteTimer = 0;
         servantNoteIndex = 0;
-        showMessage(servantActive ? 'The bone minstrel obeys and begins a D-minor toccata.' : 'The servant rises and waits silently by the wall.');
+        showMessage(servantActive ? 'The bone minstrel obeys and begins a D-minor toccata.' : 'The servant rises and waits silently beside the piano.');
     }
     interactables.push({
         mesh: servantSkull,
@@ -2742,7 +2827,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         update: (dt) => {
             const target = servantActive ? servantPianoPos : servantWallPos;
             servantGroup.position.lerp(target, Math.min(1, dt * 3.2));
-            const targetYaw = servantActive ? Math.PI / 2 : 1.34;
+            const targetYaw = servantActive ? Math.PI / 2 : -Math.PI / 2;
             servantGroup.rotation.y += (targetYaw - servantGroup.rotation.y) * Math.min(1, dt * 3.2);
             servantSkull.rotation.y = Math.sin(performance.now() * 0.0014) * 0.12;
             if (!servantActive) return;
@@ -2813,13 +2898,13 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             isBookAutoPlaying,
             pianoKeyCount: pianoKeyDefs.length,
             pianoKeyLabels: pianoKeyDefs.map((key) => key.label).join(' '),
-            roomDetailVersion: 13,
+            roomDetailVersion: 14,
             kingdom: {
                 status: kingPresence.status,
                 online: kingPresence.online,
                 message: kingPresence.message,
                 servantActive,
-                layout: 'compact castle hall with raised rear throne, clear center aisle, and entrance utility zones'
+                layout: 'expanded 12 x 14 gothic castle hall with raised rear throne, clear processional aisle, and separated furnishing alcoves'
             },
             pcRgbOn,
             pc: pcSystem.getDebugState(),

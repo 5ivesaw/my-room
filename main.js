@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=63';
-import { Player } from './player.js?v=63';
+import { createWorld } from './world.js?v=64';
+import { Player } from './player.js?v=64';
 import { InteractionSystem } from './interactions.js?v=52';
 import { sounds } from './sounds.js?v=49';
 import { startKingdomPresence } from './kingdom-presence.js?v=2';
@@ -19,6 +19,10 @@ const DEFAULT_SETTINGS = {
     fov: LOCKED_FOV,
     reducedMotion: false
 };
+
+const BED_WAKE_POSITION = new THREE.Vector3(-4.35, 1.5, -6.05);
+const BED_EXIT_POSITION = new THREE.Vector3(-2.96, 1.5, -5.92);
+const BED_WAKE_YAW = Math.PI;
 
 function sanitizeSettings(raw = {}) {
     const next = { ...DEFAULT_SETTINGS, ...raw };
@@ -428,8 +432,8 @@ function unlockFromSpecialStates() {
 
 function wakeFromBed(message = 'You wake back up in bed.') {
     unlockFromSpecialStates();
-    player.yawObject.position.set(-2.75, 1.5, -0.45);
-    player.yawObject.rotation.y = 0.35;
+    player.yawObject.position.copy(BED_WAKE_POSITION);
+    player.yawObject.rotation.y = BED_WAKE_YAW;
     player.pitchObject.rotation.x = -Math.PI / 2;
     player.allowLook = false;
     isWakingUp = true;
@@ -1311,11 +1315,11 @@ function stepGame(dt) {
 
     if (isWakingUp) {
         player.pitchObject.rotation.x += (0 - player.pitchObject.rotation.x) * 2 * dt;
-        player.yawObject.position.x += (-0.4 - player.yawObject.position.x) * 2 * dt;
+        player.yawObject.position.lerp(BED_EXIT_POSITION, Math.min(1, dt * 2));
 
-        if (Math.abs(player.pitchObject.rotation.x) < 0.05 && Math.abs(-0.4 - player.yawObject.position.x) < 0.05) {
+        if (Math.abs(player.pitchObject.rotation.x) < 0.05 && player.yawObject.position.distanceToSquared(BED_EXIT_POSITION) < 0.004) {
             player.pitchObject.rotation.x = 0;
-            player.yawObject.position.x = -0.4;
+            player.yawObject.position.copy(BED_EXIT_POSITION);
             isWakingUp = false;
             player.allowLook = true; // Restore mouse look
         }

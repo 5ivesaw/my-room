@@ -11,7 +11,8 @@ export class Player {
         this.pitchObject.add(camera);
         
         this.yawObject = new THREE.Object3D();
-        this.yawObject.position.set(-2.75, 1.5, -0.45); // Start in bed
+        this.yawObject.position.set(-4.35, 1.5, -6.05); // Start in the rear-left bed alcove
+        this.yawObject.rotation.y = Math.PI; // Face down the castle hall toward the entrance
         this.yawObject.add(this.pitchObject);
         
         this.velocity = new THREE.Vector3();
@@ -145,101 +146,53 @@ export class Player {
             this.stepTimer = 0.35; // so next step is almost immediate
         }
 
-        // Bounds checking (stuck in room)
-        if (newX < -3.5) newX = -3.5;
-        if (newX > 3.5) newX = 3.5;
-        if (newZ < -3.5) newZ = -3.5;
-        if (newZ > 3.5) newZ = 3.5;
+        // Expanded 12 x 14 castle bounds. The previous -3.5..3.5 clamp was the
+        // reason the larger shell still felt like the original tiny room.
+        newX = Math.max(-5.55, Math.min(5.55, newX));
+        newZ = Math.max(-7.55, Math.min(5.55, newZ));
 
-        // Gothic throne and dais collision. The kneeling point remains clear in front.
-        const tMinX = -1.25;
-        const tMaxX = 1.25;
-        const tMinZ = -3.5;
-        const tMaxZ = -2.72;
-        if (newX > tMinX && newX < tMaxX && newZ > tMinZ && newZ < tMaxZ) {
-            const distMinX = Math.abs(newX - tMinX);
-            const distMaxX = Math.abs(newX - tMaxX);
-            const distMaxZ = Math.abs(newZ - tMaxZ);
-            const min = Math.min(distMinX, distMaxX, distMaxZ);
-            if (min === distMinX) newX = tMinX;
-            else if (min === distMaxX) newX = tMaxX;
-            else newZ = tMaxZ;
-        }
-        
-        // Desk Collision Box (right entrance workstation)
-        const dMinX = 0.6;
-        const dMaxX = 3.5;
-        const dMinZ = 1.35;
-        const dMaxZ = 2.85;
-        
-        if (newX > dMinX && newX < dMaxX && newZ > dMinZ && newZ < dMaxZ) {
-            const distMinX = Math.abs(newX - dMinX);
-            const distMaxX = Math.abs(newX - dMaxX);
-            const distMinZ = Math.abs(newZ - dMinZ);
-            const distMaxZ = Math.abs(newZ - dMaxZ);
-            
-            const min = Math.min(distMinX, distMaxX, distMinZ, distMaxZ);
-            if (min === distMinX) newX = dMinX;
-            else if (min === distMaxX) newX = dMaxX;
-            else if (min === distMinZ) newZ = dMinZ;
-            else newZ = dMaxZ;
-        }
+        const resolveBox = (minX, maxX, minZ, maxZ) => {
+            if (!(newX > minX && newX < maxX && newZ > minZ && newZ < maxZ)) return;
 
-        // Fridge Collision Box (left entrance utility niche)
-        const fMinX = -3.5;
-        const fMaxX = -3.08;
-        const fMinZ = 0.12;
-        const fMaxZ = 0.98;
-        
-        if (newX > fMinX && newX < fMaxX && newZ > fMinZ && newZ < fMaxZ) {
-            const distMinX = Math.abs(newX - fMinX);
-            const distMaxX = Math.abs(newX - fMaxX);
-            const distMinZ = Math.abs(newZ - fMinZ);
-            const distMaxZ = Math.abs(newZ - fMaxZ);
-            
-            const min = Math.min(distMinX, distMaxX, distMinZ, distMaxZ);
-            if (min === distMinX) newX = fMinX;
-            else if (min === distMaxX) newX = fMaxX;
-            else if (min === distMinZ) newZ = fMinZ;
-            else newZ = fMaxZ;
-        }
-        
-        // Bigger digital piano body collision. The bench remains approachable for sitting.
-        const pMinX = -2.98;
-        const pMaxX = -1.35;
-        const pMinZ = 1.85;
-        const pMaxZ = 3.45;
-        
-        if (newX > pMinX && newX < pMaxX && newZ > pMinZ && newZ < pMaxZ) {
-            const distMinX = Math.abs(newX - pMinX);
-            const distMaxX = Math.abs(newX - pMaxX);
-            const distMinZ = Math.abs(newZ - pMinZ);
-            const distMaxZ = Math.abs(newZ - pMaxZ);
-            
-            const min = Math.min(distMinX, distMaxX, distMinZ, distMaxZ);
-            if (min === distMinX) newX = pMinX;
-            else if (min === distMaxX) newX = pMaxX;
-            else if (min === distMinZ) newZ = pMinZ;
-            else newZ = pMaxZ;
-        }
-        
-        // Bed Collision Box (left resting alcove, clear of the central hallway)
-        const bMinX = -3.5;
-        const bMaxX = -1.95;
-        const bMinZ = -2.18;
-        const bMaxZ = 0.72;
+            // Prefer the side the player came from. This prevents diagonal movement from
+            // snapping through large furniture and lets teleports/sitting remain stable.
+            if (prevX <= minX) { newX = minX; return; }
+            if (prevX >= maxX) { newX = maxX; return; }
+            if (prevZ <= minZ) { newZ = minZ; return; }
+            if (prevZ >= maxZ) { newZ = maxZ; return; }
 
-        if (newX > bMinX && newX < bMaxX && newZ > bMinZ && newZ < bMaxZ) {
-            const distMinX = Math.abs(newX - bMinX);
-            const distMaxX = Math.abs(newX - bMaxX);
-            const distMinZ = Math.abs(newZ - bMinZ);
-            const distMaxZ = Math.abs(newZ - bMaxZ);
-            
-            const min = Math.min(distMinX, distMaxX, distMinZ, distMaxZ);
-            if (min === distMinX) newX = bMinX;
-            else if (min === distMaxX) newX = bMaxX;
-            else if (min === distMinZ) newZ = bMinZ;
-            else newZ = bMaxZ;
+            const distances = [
+                { axis: 'x', value: minX, distance: Math.abs(newX - minX) },
+                { axis: 'x', value: maxX, distance: Math.abs(newX - maxX) },
+                { axis: 'z', value: minZ, distance: Math.abs(newZ - minZ) },
+                { axis: 'z', value: maxZ, distance: Math.abs(newZ - maxZ) }
+            ];
+            const nearest = distances.reduce((best, item) => item.distance < best.distance ? item : best);
+            if (nearest.axis === 'x') newX = nearest.value;
+            else newZ = nearest.value;
+        };
+
+        if (moved) {
+            // Raised throne platform and its front steps.
+            resolveBox(-1.95, 1.95, -7.48, -3.55);
+
+            // Right-front PC workstation. The chair remains reachable from the entrance side.
+            resolveBox(2.68, 5.55, 2.72, 4.48);
+
+            // Left utility niche refrigerator. Its front and swinging door remain approachable.
+            resolveBox(-5.55, -4.82, 0.25, 1.25);
+
+            // Ominous entrance piano, now aligned along the left wall with the bench aisle-side.
+            resolveBox(-4.92, -3.74, 2.7, 5.5);
+
+            // Rear-left bed alcove.
+            resolveBox(-5.48, -3.22, -7.5, -4.48);
+
+            // Six freestanding arch columns framing the central hallway.
+            for (const z of [-4.18, -0.92, 2.35]) {
+                resolveBox(-2.72, -2.04, z - 0.34, z + 0.34);
+                resolveBox(2.04, 2.72, z - 0.34, z + 0.34);
+            }
         }
 
         this.yawObject.position.x = newX;
