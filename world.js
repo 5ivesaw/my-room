@@ -469,7 +469,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ BED ============
     const bedGroup = new THREE.Group();
-    bedGroup.position.set(-3, 0, 2.5);
+    bedGroup.position.set(-3.0, 0, -0.72);
 
     const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(2, 0.45, 3), woodMat);
     bedFrame.position.y = 0.25;
@@ -517,7 +517,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const radioGroup = new THREE.Group();
     // On the gaming desk beside the PC tower, not beside the bed.
     // Fridge top is around y=1.40, so the radio sits above it without clipping.
-    radioGroup.position.set(3.68, 1.56, -0.48);
+    radioGroup.position.set(-3.45, 1.56, 0.55);
     radioGroup.rotation.y = 0;
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
@@ -665,7 +665,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ DESK ============
     const deskGroup = new THREE.Group();
-    deskGroup.position.set(2, 0, -2);
+    deskGroup.position.set(2.1, 0, 2.08);
 
     const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.5), woodMat);
     deskTop.position.y = 0.9;
@@ -981,19 +981,19 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         mesh: chairSeat,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(2, 0, -1),
-        deskLookAt: new THREE.Vector3(2, 1.3, -2.4),
+        chairWorldPos: new THREE.Vector3(2.1, 0, 3.08),
+        deskLookAt: new THREE.Vector3(2.1, 1.3, 1.68),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(2, 1.5, -0.62)
+        chairExitPos: new THREE.Vector3(1.18, 1.5, 3.02)
     });
     interactables.push({
         mesh: chairBack,
         action: 'sit',
         label: "Sit Down",
-        chairWorldPos: new THREE.Vector3(2, 0, -1),
-        deskLookAt: new THREE.Vector3(2, 1.3, -2.4),
+        chairWorldPos: new THREE.Vector3(2.1, 0, 3.08),
+        deskLookAt: new THREE.Vector3(2.1, 1.3, 1.68),
         chairSpinGroup: chairGroup,
-        chairExitPos: new THREE.Vector3(2, 1.5, -0.62)
+        chairExitPos: new THREE.Vector3(1.18, 1.5, 3.02)
     });
 
     // Lamp
@@ -1096,7 +1096,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ CEILING FAN ============
     const fanGroup = new THREE.Group();
-    fanGroup.position.set(0, 3.9, 0);
+    fanGroup.position.set(0, 3.9, 2.15);
 
     const fanMount = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.15, 12), metalMat);
     fanGroup.add(fanMount);
@@ -1399,7 +1399,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ FULL DIGITAL PIANO ============
     const pianoGroup = new THREE.Group();
-    pianoGroup.position.set(2.8, 0, 2.05);
+    pianoGroup.position.set(-2.2, 0, 2.55);
     pianoGroup.rotation.y = -Math.PI / 2;
     pianoGroup.scale.set(1.0, 1.0, 1.0);
 
@@ -2014,8 +2014,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     // Add interaction to sit
-    const pianoSeatPos = new THREE.Vector3(2.0, 0, 2.05);
-    const pianoViewTarget = new THREE.Vector3(3.65, 1.05, 2.05);
+    const pianoSeatPos = new THREE.Vector3(-3.02, 0, 2.55);
+    const pianoViewTarget = new THREE.Vector3(-1.36, 1.05, 2.55);
     for (let km of pianoKeyMeshes) {
         interactables.push({ mesh: km, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
     }
@@ -2113,8 +2113,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ MINI FRIDGE ============
     const fridgeGroup = new THREE.Group();
-    fridgeGroup.position.set(3.68, 0, -0.48);
-    fridgeGroup.rotation.y = -Math.PI / 2; // Face into the room
+    fridgeGroup.position.set(-3.45, 0, 0.55);
+    fridgeGroup.rotation.y = Math.PI / 2; // Face into the hall
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0xe7e9ec, roughness: 0.28, metalness: 0.08 });
     const fridgeTrimMat = new THREE.MeshStandardMaterial({ color: 0x252a30, roughness: 0.45 });
@@ -2291,8 +2291,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     interactables.push({ mesh: fridgeBody, action: () => fridgeInteractable.action(), get label() { return fridgeInteractable.label; } });
 
     // Cinematic targets for fridge items
-    const fridgeCamPos = new THREE.Vector3(2.48, 1.3, -0.48);
-    const fridgeLookAt = new THREE.Vector3(3.48, 1.3, -0.48);
+    const fridgeCamPos = new THREE.Vector3(-2.48, 1.3, 0.55);
+    const fridgeLookAt = new THREE.Vector3(-3.48, 1.3, 0.55);
 
     const grabItemAction = (item) => {
         if (!fridgeOpen || !item.available) return;
@@ -2431,7 +2431,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         new THREE.PlaneGeometry(2.1, 2.8), 
         new THREE.MeshBasicMaterial({ map: posterTex, side: THREE.DoubleSide })
     );
-    posterMesh.position.set(-1.85, 2.0, -3.98); // Back wall, inside the room
+    posterMesh.position.set(-2.78, 2.0, -3.98); // Back wall, left of the throne
     scene.add(posterMesh);
     const posterFrameMat = new THREE.MeshStandardMaterial({ color: 0x2a2520, roughness: 0.45 });
     const posterFrame = new THREE.Group();
@@ -2451,9 +2451,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     scene.add(posterFrame);
     const posterControlMat = new THREE.MeshBasicMaterial({ visible: false });
     const posterScrollUp = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollUp.position.set(-1.85, 3.05, -3.93);
+    posterScrollUp.position.set(-2.78, 3.05, -3.93);
     const posterScrollDown = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.48, 0.08), posterControlMat.clone());
-    posterScrollDown.position.set(-1.85, 0.95, -3.93);
+    posterScrollDown.position.set(-2.78, 0.95, -3.93);
     scene.add(posterScrollUp, posterScrollDown);
     interactables.push({
         mesh: posterScrollUp,
@@ -2475,7 +2475,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     });
 
     // ============ THE SOVEREIGN'S GOTHIC KINGDOM ============
-    // This is an additive architectural layer: every original room feature remains in place.
+    // Compact castle shell: the original features are preserved, but the room now reads as a hall.
     const castleGroup = new THREE.Group();
     castleGroup.name = 'gothic-castle-overhaul';
     scene.add(castleGroup);
@@ -2501,7 +2501,16 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         castleGroup.add(seam);
     }
 
-    const columnPositions = [[-3.55,-3.55],[3.55,-3.55],[-3.55,3.55],[3.55,3.55],[-1.45,-3.72],[1.45,-3.72]];
+    const aisleRunner = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.022, 6.15), new THREE.MeshStandardMaterial({ color: 0x27040a, emissive: 0x180005, emissiveIntensity: 0.18, roughness: 0.84 }));
+    aisleRunner.position.set(0, 0.04, 0.05);
+    castleGroup.add(aisleRunner);
+    for (const x of [-0.78, 0.78]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.08, 6.2), castleIronMat);
+        rail.position.set(x, 0.09, 0.05);
+        castleGroup.add(rail);
+    }
+
+    const columnPositions = [[-3.55,-3.45],[3.55,-3.45],[-3.55,3.55],[3.55,3.55],[-1.55,-2.35],[1.55,-2.35],[-1.55,1.2],[1.55,1.2]];
     columnPositions.forEach(([x, z]) => {
         const column = new THREE.Group();
         const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.19, 3.65, 8), castleStoneAltMat);
@@ -2543,7 +2552,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // Throne and the online/offline sovereign effigy.
     const throneGroup = new THREE.Group();
-    throneGroup.position.set(0, 0, -3.38);
+    throneGroup.position.set(0, 0.42, -3.26);
     scene.add(throneGroup);
     const throneBackMat = new THREE.MeshStandardMaterial({ color: 0x1a090e, emissive: 0x240006, emissiveIntensity: 0.25, roughness: 0.5, metalness: 0.35 });
     const throneGoldMat = new THREE.MeshStandardMaterial({ color: 0x6b4b21, emissive: 0x321500, emissiveIntensity: 0.18, roughness: 0.3, metalness: 0.78 });
@@ -2561,9 +2570,17 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         spike.position.set(x, 2.82, 0.18);
         throneGroup.add(spike);
     });
-    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.24, 1.9), castleStoneAltMat);
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.34, 2.0), castleStoneAltMat);
     dais.position.set(0, 0.12, 0.56);
     throneGroup.add(dais);
+    const lowerDais = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.22, 2.45), castleStoneMat);
+    lowerDais.position.set(0, -0.08, 0.72);
+    throneGroup.add(lowerDais);
+    for (let i = 0; i < 3; i++) {
+        const step = new THREE.Mesh(new THREE.BoxGeometry(2.85 - i * 0.42, 0.12, 0.36), castleStoneAltMat);
+        step.position.set(0, -0.28 + i * 0.09, 1.96 + i * 0.28);
+        throneGroup.add(step);
+    }
 
     const kingGroup = new THREE.Group();
     const royalBlackMat = new THREE.MeshStandardMaterial({ color: 0x08070a, roughness: 0.52, metalness: 0.18 });
@@ -2661,15 +2678,15 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         drawPresencePlaque();
     }
     setKingPresence(kingPresence);
-    const kneelTarget = new THREE.Vector3(0, 0, -1.72);
-    const kneelLook = new THREE.Vector3(0, 1.6, -3.18);
+    const kneelTarget = new THREE.Vector3(0, 0, -1.52);
+    const kneelLook = new THREE.Vector3(0, 2.1, -3.02);
     interactables.push({
         mesh: throneSeat,
         action: 'kneelThrone',
         get label() { return kingPresence.online ? 'Kneel Before My Lord' : 'Kneel at the Bone Throne'; },
         kneelWorldPos: kneelTarget,
         kneelLookAt: kneelLook,
-        kneelExitPos: new THREE.Vector3(0.9, 1.5, -1.3)
+        kneelExitPos: new THREE.Vector3(0.88, 1.5, -1.05)
     });
 
     // Toggleable skeletal pianist. When dismissed, he waits against the wall.
@@ -2702,8 +2719,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         leg.position.set(side * 0.12, 0.47, 0);
         servantGroup.add(leg);
     });
-    const servantWallPos = new THREE.Vector3(-3.35, 0, -2.55);
-    const servantPianoPos = new THREE.Vector3(2.78, 0.02, 2.78);
+    const servantWallPos = new THREE.Vector3(-3.35, 0, 2.02);
+    const servantPianoPos = new THREE.Vector3(-2.58, 0.02, 2.88);
     servantGroup.position.copy(servantWallPos);
     servantGroup.rotation.y = 1.34;
     let servantActive = false;
@@ -2796,12 +2813,13 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             isBookAutoPlaying,
             pianoKeyCount: pianoKeyDefs.length,
             pianoKeyLabels: pianoKeyDefs.map((key) => key.label).join(' '),
-            roomDetailVersion: 12,
+            roomDetailVersion: 13,
             kingdom: {
                 status: kingPresence.status,
                 online: kingPresence.online,
                 message: kingPresence.message,
-                servantActive
+                servantActive,
+                layout: 'compact castle hall with raised rear throne, clear center aisle, and entrance utility zones'
             },
             pcRgbOn,
             pc: pcSystem.getDebugState(),

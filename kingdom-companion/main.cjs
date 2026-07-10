@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, session, shell, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -110,4 +110,13 @@ ipcMain.handle('open-chat', () => openChat(true));
 ipcMain.handle('set-status-mode', (_event, status) => {
   currentStatus = ['online', 'busy', 'sleeping', 'offline'].includes(status) ? status : 'offline';
   return currentStatus;
+});
+ipcMain.handle('notify-audience', (_event, preview) => {
+  if (currentStatus !== 'online' || !Notification.isSupported()) return false;
+  new Notification({
+    title: 'New throne petition',
+    body: String(preview || 'Someone requested an audience.').slice(0, 120),
+    silent: false
+  }).show();
+  return true;
 });

@@ -43,6 +43,33 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /kingdom/audienceMessages/items/{messageId} {
+      allow create: if signedIn()
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 900
+        && request.resource.data.statusAtSubmission is string
+        && request.resource.data.statusAtSubmission.size() <= 24
+        && request.resource.data.createdMs is number
+        && (
+          request.resource.data.attachment == null
+          || (
+            request.resource.data.attachment is map
+            && request.resource.data.attachment.name is string
+            && request.resource.data.attachment.name.size() <= 80
+            && request.resource.data.attachment.type is string
+            && request.resource.data.attachment.type.size() <= 80
+            && request.resource.data.attachment.size is number
+            && request.resource.data.attachment.size <= 480000
+            && request.resource.data.attachment.dataUrl is string
+            && request.resource.data.attachment.dataUrl.size() <= 650000
+          )
+        );
+      allow read, delete: if isSovereign();
+      allow update: if false;
+    }
+
     function validPublicProfile(data, uid) {
       return data.uid == uid
         && data.displayName is string

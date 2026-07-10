@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=62';
-import { Player } from './player.js?v=62';
+import { createWorld } from './world.js?v=63';
+import { Player } from './player.js?v=63';
 import { InteractionSystem } from './interactions.js?v=52';
 import { sounds } from './sounds.js?v=49';
-import { startKingdomPresence } from './kingdom-presence.js?v=1';
+import { startKingdomPresence } from './kingdom-presence.js?v=2';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
@@ -106,16 +106,138 @@ const audiencePanel = document.getElementById('audience-panel');
 const audienceClose = document.getElementById('audience-close');
 const audienceStatus = document.getElementById('audience-status');
 const audienceDecree = document.getElementById('audience-decree');
-const audienceContact = document.getElementById('audience-contact');
+const audienceForm = document.getElementById('audience-form');
+const audienceMessage = document.getElementById('audience-message');
+const audienceFile = document.getElementById('audience-file');
+const audienceSend = document.getElementById('audience-send');
+const audienceFormNote = document.getElementById('audience-form-note');
+const AUDIENCE_QUEUE_KEY = 'my-room.audiencePetitions.v1';
+const AUDIENCE_LAST_SENT_KEY = 'my-room.audiencePetition.lastSentAt';
+const AUDIENCE_COOLDOWN_MS = 60000;
+const AUDIENCE_MAX_FILE_BYTES = 480000;
+let currentPresence = { status: 'offline', online: false, message: '' };
+let audienceSubmitBusy = false;
+let audienceFirebasePromise = null;
 
 function applyKingdomPresence(presence = {}) {
     const online = presence.online === true;
     const status = String(presence.status || 'offline');
+    currentPresence = { ...presence, online, status };
     audiencePanel?.classList.toggle('online', online);
     if (audienceStatus) audienceStatus.textContent = status;
     if (audienceDecree) audienceDecree.textContent = presence.message || (online ? 'My Lord is watching from the throne.' : 'The bone throne keeps watch in my Lord\'s absence.');
-    if (audienceContact) audienceContact.href = `veil-chat/index.html?audience=1${presence.contactUid ? `&friend=${encodeURIComponent(presence.contactUid)}` : ''}`;
     worldData?.setKingPresence?.(presence);
+}
+
+async function fileToAudienceAttachment(file) {
+    if (!file) return null;
+    if (file.size > AUDIENCE_MAX_FILE_BYTES) {
+        throw new Error('That offering is too large for the throne. Keep it under 480 KB.');
+    }
+    const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('The offering could not be read.'));
+        reader.readAsDataURL(file);
+    });
+    return {
+        name: String(file.name || 'offering').slice(0, 80),
+        type: String(file.type || 'application/octet-stream').slice(0, 80),
+        size: file.size,
+        dataUrl
+    };
+}
+
+function rememberLocalPetition(payload) {
+    try {
+        const queue = JSON.parse(localStorage.getItem(AUDIENCE_QUEUE_KEY) || '[]');
+        queue.unshift(payload);
+        localStorage.setItem(AUDIENCE_QUEUE_KEY, JSON.stringify(queue.slice(0, 25)));
+    } catch {
+        // Local petition storage is best effort.
+    }
+}
+
+async function getAudienceFirebase() {
+    if (audienceFirebasePromise) return audienceFirebasePromise;
+    audienceFirebasePromise = (async () => {
+        const config = window.VEIL_FIREBASE_CONFIG;
+        if (!config?.apiKey) throw new Error('Firebase audience is not configured.');
+        const [{ initializeApp, getApps }, { getAuth, signInAnonymously }, { getFirestore, collection, addDoc, serverTimestamp }] = await Promise.all([
+            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
+            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+        ]);
+        const app = getApps().length ? getApps()[0] : initializeApp(config);
+        const auth = getAuth(app);
+        if (!auth.currentUser) await signInAnonymously(auth);
+        return { auth, db: getFirestore(app), collection, addDoc, serverTimestamp };
+    })();
+    return audienceFirebasePromise;
+}
+
+async function sendRemotePetition(payload) {
+    const { auth, db, collection, addDoc, serverTimestamp } = await getAudienceFirebase();
+    await addDoc(collection(db, 'kingdom', 'audienceMessages', 'items'), {
+        text: payload.text,
+        attachment: payload.attachment ? {
+            name: payload.attachment.name,
+            type: payload.attachment.type,
+            size: payload.attachment.size,
+            dataUrl: payload.attachment.dataUrl
+        } : null,
+        statusAtSubmission: payload.statusAtSubmission,
+        senderUid: auth.currentUser?.uid || 'anonymous',
+        createdAt: serverTimestamp(),
+        createdMs: Date.now()
+    });
+}
+
+async function submitAudiencePetition(event) {
+    event.preventDefault();
+    if (audienceSubmitBusy) return;
+    const now = Date.now();
+    const lastSent = Number(localStorage.getItem(AUDIENCE_LAST_SENT_KEY) || 0);
+    const remaining = AUDIENCE_COOLDOWN_MS - (now - lastSent);
+    if (remaining > 0) {
+        showMessage(`The throne accepts one petition every ${Math.ceil(remaining / 1000)} seconds.`);
+        return;
+    }
+
+    const rawText = String(audienceMessage?.value || '').trim();
+    if (!rawText) return;
+    const text = /^my lord\b/i.test(rawText) ? rawText.slice(0, 900) : `My Lord, ${rawText}`.slice(0, 900);
+    audienceSubmitBusy = true;
+    if (audienceSend) audienceSend.disabled = true;
+    if (audienceFormNote) audienceFormNote.textContent = 'Sealing petition...';
+
+    try {
+        const attachment = await fileToAudienceAttachment(audienceFile?.files?.[0] || null);
+        const payload = {
+            text,
+            attachment,
+            statusAtSubmission: currentPresence.status || 'offline',
+            createdAt: new Date().toISOString(),
+            userAgent: navigator.userAgent.slice(0, 180)
+        };
+        rememberLocalPetition(payload);
+        try {
+            await sendRemotePetition(payload);
+        } catch (error) {
+            console.warn('Audience petition saved locally; remote delivery unavailable.', error);
+        }
+        localStorage.setItem(AUDIENCE_LAST_SENT_KEY, String(now));
+        audienceForm?.reset();
+        if (audienceFormNote) audienceFormNote.textContent = 'Petition sealed inside the audience chamber.';
+        showMessage('Your petition has been placed before the throne.');
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'The petition failed.';
+        if (audienceFormNote) audienceFormNote.textContent = message;
+        showMessage(message);
+    } finally {
+        audienceSubmitBusy = false;
+        if (audienceSend) audienceSend.disabled = false;
+    }
 }
 
 function openAudiencePanel() {
@@ -132,6 +254,7 @@ function closeAudiencePanel() {
 }
 
 audienceClose?.addEventListener('click', closeAudiencePanel);
+audienceForm?.addEventListener('submit', submitAudiencePetition);
 
 function shouldUseMobileInput() {
     return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
@@ -305,8 +428,8 @@ function unlockFromSpecialStates() {
 
 function wakeFromBed(message = 'You wake back up in bed.') {
     unlockFromSpecialStates();
-    player.yawObject.position.set(-2.75, 1.5, 2.65);
-    player.yawObject.rotation.y = -0.78;
+    player.yawObject.position.set(-2.75, 1.5, -0.45);
+    player.yawObject.rotation.y = 0.35;
     player.pitchObject.rotation.x = -Math.PI / 2;
     player.allowLook = false;
     isWakingUp = true;
@@ -779,6 +902,7 @@ let hangAnimPhase = '';
 let hangAnimTime = 0;
 let hangMaxSpeedTime = 0;
 let preHangPos = new THREE.Vector3();
+let hangCenter = new THREE.Vector3(0, 3.0, 2.15);
 
 function startHang(fanGroup, bladeGroup) {
     if (isHanging || isSitting) return;
@@ -788,6 +912,8 @@ function startHang(fanGroup, bladeGroup) {
     hangAnimTime = 0;
     hangMaxSpeedTime = 0;
     preHangPos.copy(player.yawObject.position);
+    fanGroup?.getWorldPosition?.(hangCenter);
+    hangCenter.y = 3.0;
     showMessage("WHEEE! Press E to let go. Max-speed fan is cursed.");
     // Cat starts curiously tracking the player
     if (worldData && worldData.setCatTracking) {
@@ -802,8 +928,8 @@ function updateHangAnimation(dt, worldData) {
         const t = Math.min(hangAnimTime / 0.4, 1);
         const ease = t * t * (3 - 2 * t);
         // Move up to fan
-        player.yawObject.position.x = preHangPos.x + (0 - preHangPos.x) * ease;
-        player.yawObject.position.z = preHangPos.z + (0 - preHangPos.z) * ease;
+        player.yawObject.position.x = preHangPos.x + (hangCenter.x - preHangPos.x) * ease;
+        player.yawObject.position.z = preHangPos.z + (hangCenter.z - preHangPos.z) * ease;
         player.yawObject.position.y = preHangPos.y + (3.0 - preHangPos.y) * ease;
         if (t >= 1) {
             hangAnimPhase = 'hanging';
@@ -812,8 +938,8 @@ function updateHangAnimation(dt, worldData) {
         // Spin with the fan blades
         const fanAngle = worldData.bladeGroup.rotation.y;
         const radius = 0.8;
-        player.yawObject.position.x = Math.sin(fanAngle) * radius;
-        player.yawObject.position.z = Math.cos(fanAngle) * radius;
+        player.yawObject.position.x = hangCenter.x + Math.sin(fanAngle) * radius;
+        player.yawObject.position.z = hangCenter.z + Math.cos(fanAngle) * radius;
         player.yawObject.position.y = 3.0;
         // Spin the camera too for fun
         player.yawObject.rotation.y = -fanAngle;

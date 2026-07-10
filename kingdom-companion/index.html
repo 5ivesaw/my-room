@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src https://*.googleapis.com https://*.firebaseio.com wss://*.googleapis.com wss://*.firebaseio.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src https://*.googleapis.com https://*.firebaseio.com wss://*.googleapis.com wss://*.firebaseio.com; style-src 'self'; img-src 'self' data:; media-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>Kingdom Companion</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -29,8 +29,9 @@
     </section>
     <section class="card">
       <h2>Audience messages</h2>
+      <div id="audienceInbox" class="inbox"><p class="fine">Sign in to watch throne petitions.</p></div>
       <input id="chatUrl" type="url" placeholder="https://your-site/veil-chat/?audience=1">
-      <div class="row"><button id="saveChat" class="secondary">Save secure URL</button><button id="openChat" class="secondary">Open messages</button></div>
+      <div class="row"><button id="saveChat" class="secondary">Save Veil URL</button><button id="openChat" class="secondary">Open Veil</button></div>
       <label class="check"><input id="startup" type="checkbox"> Start companion when I sign into Windows</label>
       <p id="notice" class="fine"></p>
     </section>

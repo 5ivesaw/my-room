@@ -1825,7 +1825,14 @@ button:active,
 .audience-card h2 { margin:18px 0 10px; font-family:Georgia,'Times New Roman',serif; font-size:clamp(34px,7vw,58px); line-height:.96; letter-spacing:-.04em; }
 .audience-decree,.audience-rule { color:rgba(238,228,210,.74); line-height:1.6; text-wrap:pretty; }
 .audience-rule { padding:13px 15px; border-left:3px solid #a80b27; background:rgba(255,255,255,.04); font-size:13px; }
+.audience-form { display:grid; gap:10px; margin-top:16px; }
+.audience-form textarea { width:100%; min-height:132px; resize:vertical; padding:14px 15px; border:1px solid rgba(255,255,255,.16); border-radius:8px; color:#f7eddb; background:rgba(0,0,0,.28); font:500 15px/1.45 system-ui,sans-serif; outline:none; }
+.audience-form textarea:focus { border-color:rgba(227,34,69,.72); box-shadow:0 0 0 3px rgba(227,34,69,.14); }
+.audience-file { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; padding:10px 12px; border:1px dashed rgba(255,255,255,.18); border-radius:8px; color:rgba(238,228,210,.8); background:rgba(255,255,255,.045); font-size:13px; }
+.audience-file input { width:min(100%,230px); color:rgba(238,228,210,.68); font-size:12px; }
+.audience-form-note { margin:0; color:rgba(238,228,210,.56); font-size:12px; line-height:1.45; }
 .audience-actions { display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
-.audience-actions a,.audience-actions button { min-height:48px; display:inline-flex; align-items:center; justify-content:center; margin:0; padding:0 18px; border:1px solid rgba(255,255,255,.17); border-radius:10px; color:#f7eddb; background:rgba(255,255,255,.07); font:800 13px/1 system-ui,sans-serif; text-decoration:none; }
-.audience-actions a { color:#170308; border-color:transparent; background:linear-gradient(135deg,#f5e5c6,#c91c38); }
+.audience-actions button { min-height:48px; display:inline-flex; align-items:center; justify-content:center; margin:0; padding:0 18px; border:1px solid rgba(255,255,255,.17); border-radius:10px; color:#f7eddb; background:rgba(255,255,255,.07); font:800 13px/1 system-ui,sans-serif; text-decoration:none; }
+.audience-actions button[type="submit"] { color:#170308; border-color:transparent; background:linear-gradient(135deg,#f5e5c6,#c91c38); }
+.audience-actions button:disabled { opacity:.55; cursor:wait; }
 @media (max-width:520px) { .audience-actions { display:grid; grid-template-columns:1fr; } }

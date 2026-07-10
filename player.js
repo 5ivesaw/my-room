@@ -11,7 +11,7 @@ export class Player {
         this.pitchObject.add(camera);
         
         this.yawObject = new THREE.Object3D();
-        this.yawObject.position.set(-2, 1.5, 2); // Start in bed
+        this.yawObject.position.set(-2.75, 1.5, -0.45); // Start in bed
         this.yawObject.add(this.pitchObject);
         
         this.velocity = new THREE.Vector3();
@@ -166,11 +166,11 @@ export class Player {
             else newZ = tMaxZ;
         }
         
-        // Desk Collision Box (Desk is at X=2, Z=-2, size 3x1.5)
-        const dMinX = 0.5;
+        // Desk Collision Box (right entrance workstation)
+        const dMinX = 0.6;
         const dMaxX = 3.5;
-        const dMinZ = -2.75;
-        const dMaxZ = -1.25;
+        const dMinZ = 1.35;
+        const dMaxZ = 2.85;
         
         if (newX > dMinX && newX < dMaxX && newZ > dMinZ && newZ < dMaxZ) {
             const distMinX = Math.abs(newX - dMinX);
@@ -185,11 +185,11 @@ export class Player {
             else newZ = dMaxZ;
         }
 
-        // Fridge Collision Box (moved closer to the desk/table)
-        const fMinX = 3.08;
-        const fMaxX = 3.5;
-        const fMinZ = -0.9;
-        const fMaxZ = -0.08;
+        // Fridge Collision Box (left entrance utility niche)
+        const fMinX = -3.5;
+        const fMaxX = -3.08;
+        const fMinZ = 0.12;
+        const fMaxZ = 0.98;
         
         if (newX > fMinX && newX < fMaxX && newZ > fMinZ && newZ < fMaxZ) {
             const distMinX = Math.abs(newX - fMinX);
@@ -205,9 +205,9 @@ export class Player {
         }
         
         // Bigger digital piano body collision. The bench remains approachable for sitting.
-        const pMinX = 2.2;
-        const pMaxX = 3.45;
-        const pMinZ = 0.65;
+        const pMinX = -2.98;
+        const pMaxX = -1.35;
+        const pMinZ = 1.85;
         const pMaxZ = 3.45;
         
         if (newX > pMinX && newX < pMaxX && newZ > pMinZ && newZ < pMaxZ) {
@@ -223,11 +223,11 @@ export class Player {
             else newZ = pMaxZ;
         }
         
-        // Bed Collision Box (corner bed, flush against left/front walls)
+        // Bed Collision Box (left resting alcove, clear of the central hallway)
         const bMinX = -3.5;
         const bMaxX = -1.95;
-        const bMinZ = 1.0;
-        const bMaxZ = 3.5;
+        const bMinZ = -2.18;
+        const bMaxZ = 0.72;
 
         if (newX > bMinX && newX < bMaxX && newZ > bMinZ && newZ < bMaxZ) {
             const distMinX = Math.abs(newX - bMinX);

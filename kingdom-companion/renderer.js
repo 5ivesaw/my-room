@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-import { getFirestore, doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { getFirestore, doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
 const config = window.KINGDOM_FIREBASE_CONFIG || window.VEIL_FIREBASE_CONFIG;
 const notice = document.getElementById('notice');
@@ -8,6 +8,7 @@ const say = (text) => { notice.textContent = text; };
 const validConfig = config?.apiKey && !String(config.apiKey).includes('PASTE_');
 let auth = null;
 let db = null;
+let stopAudienceInbox = null;
 
 const desktopSettings = await window.kingdomDesktop.getSettings();
 document.getElementById('startup').checked = desktopSettings.startup;
@@ -38,7 +39,55 @@ if (!validConfig) {
   onAuthStateChanged(auth, (user) => {
     document.getElementById('authCard').classList.toggle('hidden', Boolean(user));
     document.getElementById('presenceCard').classList.toggle('hidden', !user);
-    if (user) document.getElementById('ownerEmail').textContent = user.email || user.uid;
+    if (stopAudienceInbox) {
+      stopAudienceInbox();
+      stopAudienceInbox = null;
+    }
+    if (user) {
+      document.getElementById('ownerEmail').textContent = user.email || user.uid;
+      startAudienceInbox();
+    } else {
+      document.getElementById('audienceInbox').innerHTML = '<p class="fine">Sign in to watch throne petitions.</p>';
+    }
+  });
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function startAudienceInbox() {
+  if (!db) return;
+  const inbox = document.getElementById('audienceInbox');
+  let firstSnapshot = true;
+  const inboxQuery = query(collection(db, 'kingdom', 'audienceMessages', 'items'), orderBy('createdMs', 'desc'), limit(12));
+  stopAudienceInbox = onSnapshot(inboxQuery, (snapshot) => {
+    if (snapshot.empty) {
+      inbox.innerHTML = '<p class="fine">No petitions before the throne yet.</p>';
+      return;
+    }
+    inbox.innerHTML = snapshot.docs.map((entry) => {
+      const data = entry.data();
+      const attachment = data.attachment;
+      const when = data.createdMs ? new Date(data.createdMs).toLocaleString() : 'just now';
+      const media = attachment?.dataUrl
+        ? attachment.type?.startsWith('image/')
+          ? `<img src="${attachment.dataUrl}" alt="Audience attachment">`
+          : attachment.type?.startsWith('audio/')
+            ? `<audio controls src="${attachment.dataUrl}"></audio>`
+            : attachment.type?.startsWith('video/')
+              ? `<video controls src="${attachment.dataUrl}"></video>`
+              : `<a href="${attachment.dataUrl}" download="${escapeHtml(attachment.name)}">${escapeHtml(attachment.name)}</a>`
+        : '';
+      return `<article class="petition"><time>${escapeHtml(when)}</time><p>${escapeHtml(data.text || '')}</p>${media}</article>`;
+    }).join('');
+    if (!firstSnapshot) {
+      const newest = snapshot.docChanges().find((change) => change.type === 'added')?.doc?.data();
+      if (newest) window.kingdomDesktop.notifyAudience(newest.text || 'Someone requested an audience.');
+    }
+    firstSnapshot = false;
+  }, (error) => {
+    inbox.innerHTML = `<p class="fine">Audience inbox blocked: ${escapeHtml(error.message)}</p>`;
   });
 }
 
