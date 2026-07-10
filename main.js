@@ -119,7 +119,16 @@ function updateAdaptiveResolution(dt) {
 }
 
 applyRenderScale();
-gameContainer.appendChild(renderer.domElement);
+// Keep the WebGL surface physically below every HTML interface layer.
+// Appending it after #ui-layer lets the canvas win the browser stacking order
+// on some desktop/mobile engines, making the rendered room cover and intercept
+// the launch menu.
+const uiLayer = document.getElementById('ui-layer');
+if (uiLayer) {
+    gameContainer.insertBefore(renderer.domElement, uiLayer);
+} else {
+    gameContainer.prepend(renderer.domElement);
+}
 
 // Setup Scene
 const scene = new THREE.Scene();
