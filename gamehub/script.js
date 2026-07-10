@@ -844,6 +844,14 @@ pauseButton.addEventListener("click", togglePause);
 phaseButton.addEventListener("click", activatePhase);
 resetButton.addEventListener("click", startGame);
 canvas.addEventListener("click", () => canvas.focus());
+document.querySelectorAll("[data-direction]").forEach(button => {
+  button.addEventListener("pointerdown", event => {
+    event.preventDefault();
+    if (!state || state.mode === "menu" || state.mode === "gameover") startGame();
+    const direction = directions[button.dataset.direction];
+    if (direction) setDirection(direction);
+  });
+});
 window.addEventListener("keydown", handleKey);
 window.addEventListener("resize", resizeCanvas);
 document.addEventListener("fullscreenchange", resizeCanvas);

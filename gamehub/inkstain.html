@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>INKSTAIN — A Kinetic Parry</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -491,6 +491,12 @@
     opacity: 0.4;
     z-index: 6;
   }
+  .touch-controls{display:none;position:fixed;inset:auto max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));z-index:20;align-items:end;justify-content:space-between;pointer-events:none}
+  .touch-move{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px;pointer-events:auto}
+  .touch-actions{display:grid;grid-template-columns:repeat(2,minmax(62px,76px));gap:7px;pointer-events:auto}
+  .touch-controls button{min-height:50px;border:1px solid rgba(193,39,45,.5);color:var(--bone);background:rgba(10,9,8,.8);font:900 11px 'Cinzel',serif;touch-action:none;backdrop-filter:blur(10px)}
+  .touch-move [data-code="KeyW"]{grid-column:2}.touch-move [data-code="KeyA"]{grid-column:1;grid-row:2}.touch-move [data-code="KeyS"]{grid-column:2;grid-row:2}.touch-move [data-code="KeyD"]{grid-column:3;grid-row:2}
+  @media (hover:none),(pointer:coarse){html,body{height:100dvh;cursor:default}canvas{touch-action:none}.touch-controls{display:flex}body:has(.overlay:not(.hidden)) .touch-controls{display:none}.hub-link{left:auto;right:max(10px,env(safe-area-inset-right));bottom:auto;top:max(10px,env(safe-area-inset-top));min-height:44px}.credit,.hud-bottom{display:none}.hud-top{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))}.overlay{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));overflow:auto}.overlay-content,#startScreen .overlay-content{width:100%;max-height:calc(100dvh - 20px);overflow:auto;padding:22px 18px}.instructions{flex-wrap:wrap}.title{font-size:clamp(42px,15vw,72px)}.stats{gap:20px;flex-wrap:wrap}.btn{min-height:48px}}
 </style>
 </head>
 <body>
@@ -572,6 +578,11 @@
 
 <div class="credit">Ink · Steel · Silence</div>
 
+<div class="touch-controls" aria-label="Touch game controls">
+  <div class="touch-move"><button type="button" data-code="KeyW" aria-label="Move up">▲</button><button type="button" data-code="KeyA" aria-label="Move left">◀</button><button type="button" data-code="KeyS" aria-label="Move down">▼</button><button type="button" data-code="KeyD" aria-label="Move right">▶</button></div>
+  <div class="touch-actions"><button type="button" data-touch="fire">FIRE</button><button type="button" data-touch="melee">STRIKE</button></div>
+</div>
+
 <script>
 (function() {
 'use strict';
@@ -604,6 +615,26 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys[e.code] = false);
 window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') { mouse.x = e.clientX; mouse.y = e.clientY; } });
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  e.preventDefault(); mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true;
+});
+canvas.addEventListener('pointerup', e => { if (e.pointerType === 'touch') mouse.down = false; });
+canvas.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') mouse.down = false; });
+document.querySelectorAll('.touch-move [data-code]').forEach(button => {
+  const release = event => { event.preventDefault(); keys[button.dataset.code] = false; };
+  button.addEventListener('pointerdown', event => { event.preventDefault(); button.setPointerCapture?.(event.pointerId); keys[button.dataset.code] = true; });
+  button.addEventListener('pointerup', release);
+  button.addEventListener('pointercancel', release);
+  button.addEventListener('lostpointercapture', () => { keys[button.dataset.code] = false; });
+});
+document.querySelector('[data-touch="fire"]')?.addEventListener('pointerdown', event => { event.preventDefault(); mouse.down = true; });
+document.querySelector('[data-touch="fire"]')?.addEventListener('pointerup', event => { event.preventDefault(); mouse.down = false; });
+document.querySelector('[data-touch="fire"]')?.addEventListener('pointercancel', () => { mouse.down = false; });
+document.querySelector('[data-touch="melee"]')?.addEventListener('pointerdown', event => {
+  event.preventDefault(); keys.Space = true; setTimeout(() => { keys.Space = false; }, 90);
+});
 window.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
 window.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = false; });

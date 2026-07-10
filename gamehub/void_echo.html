@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>VOID ECHO</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100vh;background:#000;display:flex;align-items:center;
+html,body{width:100%;height:100vh;height:100dvh;background:#000;display:flex;align-items:center;
   justify-content:center;overflow:hidden;user-select:none}
 body{
   background:
@@ -16,7 +16,7 @@ body{
 }
 body::before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px);background-size:100% 4px;opacity:.22;mix-blend-mode:screen}
 body::after{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(200,244,255,.08) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(255,75,28,.07) 0 1px,transparent 1px 10px),radial-gradient(circle at 50% 50%,transparent 0 44%,rgba(0,0,0,.48) 88%);mix-blend-mode:screen;opacity:.3}
-canvas{display:block;width:min(100vw,900px);height:auto;max-height:100vh;box-shadow:0 24px 90px rgba(0,0,0,.72),0 0 0 2px rgba(51,204,255,.28),0 0 45px rgba(51,204,255,.13);image-rendering:pixelated;filter:contrast(1.18) saturate(1.2)}
+canvas{display:block;width:min(100vw,900px);height:auto;max-height:100vh;max-height:100dvh;box-shadow:0 24px 90px rgba(0,0,0,.72),0 0 0 2px rgba(51,204,255,.28),0 0 45px rgba(51,204,255,.13);image-rendering:pixelated;filter:contrast(1.18) saturate(1.2)}
 .hub-link{position:fixed;left:18px;top:18px;z-index:20;display:inline-flex;align-items:center;padding:9px 12px;border:1px solid rgba(51,204,255,.38);border-radius:0;color:#c8f4ff;background:rgba(0,10,16,.66);font:700 11px 'Courier New',Courier,monospace;letter-spacing:3px;text-decoration:none;text-transform:uppercase;box-shadow:0 0 24px rgba(51,204,255,.1);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
 .hub-link:hover{border-color:#3cf;color:#fff;box-shadow:0 0 28px rgba(51,204,255,.28)}
 #OL{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
@@ -43,6 +43,12 @@ canvas{display:block;width:min(100vw,900px);height:auto;max-height:100vh;box-sha
 .bg{color:#2fb;border:1px solid #2fb;text-shadow:0 0 8px #2fb;
   box-shadow:0 0 16px rgba(18,238,160,.12)}
 .bg:hover{background:rgba(18,238,160,.08);box-shadow:0 0 28px rgba(18,238,160,.26)}
+.touch-controls{display:none;position:fixed;inset:auto 12px max(12px,env(safe-area-inset-bottom));z-index:25;align-items:end;justify-content:space-between;pointer-events:none}
+.touch-pad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:6px;pointer-events:auto}
+.touch-pad button,.touch-pulse{min-width:54px;min-height:54px;border:1px solid rgba(51,204,255,.46);color:#c8f4ff;background:rgba(0,10,16,.82);font:900 18px 'Courier New',monospace;touch-action:none}
+.touch-pad [data-code="KeyW"]{grid-column:2}.touch-pad [data-code="KeyA"]{grid-column:1;grid-row:2}.touch-pad [data-code="KeyS"]{grid-column:2;grid-row:2}.touch-pad [data-code="KeyD"]{grid-column:3;grid-row:2}
+.touch-pulse{pointer-events:auto;min-width:88px;border-color:rgba(18,238,160,.6);color:#2fb;font-size:12px;letter-spacing:1px}
+@media (hover:none),(pointer:coarse){.touch-controls{display:flex}#OL.on + .touch-controls{display:none}.hub-link{left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top))}.sc{max-height:calc(100dvh - 20px);overflow:auto;padding:20px}.T1{font-size:clamp(34px,12vw,54px);letter-spacing:7px}.T2{letter-spacing:3px}.btn{min-height:48px}}
 </style>
 </head>
 <body>
@@ -78,6 +84,15 @@ canvas{display:block;width:min(100vw,900px);height:auto;max-height:100vh;box-sha
     <button class="btn bg" onclick="restartGame()">RESTART MISSION</button>
   </div>
 
+</div>
+<div class="touch-controls" aria-label="Touch game controls">
+  <div class="touch-pad">
+    <button type="button" data-code="KeyW" aria-label="Move up">▲</button>
+    <button type="button" data-code="KeyA" aria-label="Move left">◀</button>
+    <button type="button" data-code="KeyS" aria-label="Move down">▼</button>
+    <button type="button" data-code="KeyD" aria-label="Move right">▶</button>
+  </div>
+  <button class="touch-pulse" type="button">PULSE</button>
 </div>
 <script>
 'use strict';
@@ -139,6 +154,21 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { delete held[e.code]; });
 addEventListener('blur', () => {
   for (const code in held) delete held[code];
+});
+document.querySelectorAll('.touch-pad [data-code]').forEach(button => {
+  const release = event => { event.preventDefault(); delete held[button.dataset.code]; };
+  button.addEventListener('pointerdown', event => {
+    event.preventDefault();
+    button.setPointerCapture?.(event.pointerId);
+    held[button.dataset.code] = true;
+  });
+  button.addEventListener('pointerup', release);
+  button.addEventListener('pointercancel', release);
+  button.addEventListener('lostpointercapture', () => { delete held[button.dataset.code]; });
+});
+document.querySelector('.touch-pulse')?.addEventListener('pointerdown', event => {
+  event.preventDefault();
+  if (mode === 'play') playerPulse();
 });
 
 // ── AUDIO ────────────────────────────────────────────────────

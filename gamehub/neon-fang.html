@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Sawline - 5ivesaw Games</title>
     <meta
       name="description"
@@ -12,7 +12,7 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23030303'/%3E%3Cpath d='M12 12h32v9H23l-2 9h19l10 22H13v-9h23l-2-6H12z' fill='%23f5f1e8'/%3E%3C/svg%3E"
     >
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=61">
   </head>
   <body class="game-page sawline-page">
     <header class="top-nav sawline-nav">
@@ -52,6 +52,12 @@
             <button type="button" id="pauseButton">Pause</button>
             <button type="button" id="phaseButton">Phase</button>
             <button type="button" id="resetButton">Reset</button>
+          </div>
+          <div class="touch-dpad" aria-label="Touch direction controls">
+            <button type="button" data-direction="up" aria-label="Move up">▲</button>
+            <button type="button" data-direction="left" aria-label="Move left">◀</button>
+            <button type="button" data-direction="down" aria-label="Move down">▼</button>
+            <button type="button" data-direction="right" aria-label="Move right">▶</button>
           </div>
         </div>
 
@@ -99,6 +105,6 @@
       </section>
     </main>
 
-    <script src="./script.js"></script>
+    <script src="./script.js?v=61"></script>
   </body>
 </html>

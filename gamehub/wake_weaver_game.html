@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Wake Weaver</title>
 <style>
   :root{
@@ -20,7 +20,7 @@
   html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 35%, #1a2327 0%, #0c1012 42%, #07090a 100%);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;color:var(--ink);}
   body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 52% 44%, rgba(136,216,192,.16), transparent 26rem),linear-gradient(115deg, transparent 0 45%, rgba(242,239,230,.08) 45% 46%, transparent 46%);mix-blend-mode:screen}
   body::after{content:"";position:fixed;inset:0;z-index:30;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(242,239,230,.06) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(136,216,192,.07) 0 1px,transparent 1px 10px),radial-gradient(circle at 50% 50%,transparent 0 42%,rgba(0,0,0,.44) 88%);mix-blend-mode:screen;opacity:.3}
-  canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;filter:contrast(1.12) saturate(1.18);}
+  canvas{display:block;width:100vw;height:100vh;height:100dvh;image-rendering:pixelated;filter:contrast(1.12) saturate(1.18);}
   .hub-link{position:fixed;left:16px;bottom:16px;z-index:20;display:inline-flex;align-items:center;padding:9px 12px;border:1px solid rgba(136,216,192,.38);border-radius:0;color:var(--ink);background:rgba(9,13,15,.66);backdrop-filter:blur(10px);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;box-shadow:0 14px 36px rgba(0,0,0,.28),0 0 24px rgba(136,216,192,.12);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
   .hub-link:hover{border-color:rgba(136,216,192,.72);box-shadow:0 0 28px rgba(136,216,192,.18),0 14px 36px rgba(0,0,0,.34)}
   .hud{position:fixed;inset:0;pointer-events:none;}
@@ -66,6 +66,12 @@
     .grid,.shop{grid-template-columns:1fr}
     .rightbar{max-width:calc(100vw - 32px);top:auto;bottom:14px;justify-content:flex-start}
   }
+  .touch-controls{display:none;position:fixed;inset:auto max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));z-index:24;align-items:end;justify-content:space-between;pointer-events:none}
+  .touch-move{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px;pointer-events:auto}
+  .touch-actions{display:grid;grid-template-columns:repeat(2,minmax(64px,78px));gap:7px;pointer-events:auto}
+  .touch-controls button{min-height:50px;border:1px solid rgba(136,216,192,.42);color:var(--ink);background:rgba(9,13,15,.82);font:800 12px system-ui;touch-action:none;backdrop-filter:blur(10px)}
+  .touch-move [data-key="w"]{grid-column:2}.touch-move [data-key="a"]{grid-column:1;grid-row:2}.touch-move [data-key="s"]{grid-column:2;grid-row:2}.touch-move [data-key="d"]{grid-column:3;grid-row:2}
+  @media (hover:none),(pointer:coarse){canvas{touch-action:none}.touch-controls{display:flex}.hud:has(#overlay:not([style*="display: none"])) + .touch-controls{display:none}.hub-link{left:auto;right:max(10px,env(safe-area-inset-right));bottom:auto;top:max(10px,env(safe-area-inset-top))}.rightbar{display:none}.topbar{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));gap:5px}.chip{padding:5px 7px;font-size:11px}.card{max-height:calc(100dvh - 20px);padding:18px}.title{font-size:clamp(32px,11vw,52px)}.btn{min-height:48px}}
 </style>
 </head>
 <body>
@@ -101,6 +107,12 @@
       </div>
     </div>
   </div>
+</div>
+<div class="touch-controls" aria-label="Touch game controls">
+  <div class="touch-move">
+    <button type="button" data-key="w" aria-label="Move up">▲</button><button type="button" data-key="a" aria-label="Move left">◀</button><button type="button" data-key="s" aria-label="Move down">▼</button><button type="button" data-key="d" aria-label="Move right">▶</button>
+  </div>
+  <div class="touch-actions"><button type="button" data-touch-action="dash">DASH</button><button type="button" data-touch-action="detonate">BURST</button></div>
 </div>
 <script>
 (() => {
@@ -1431,6 +1443,29 @@ let purchasedGrafts = Object.create(null);
     if (document.hidden) clearInput();
   });
   addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') { mouse.x = e.clientX; mouse.y = e.clientY; }
+  });
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' || state !== 'playing') return;
+    e.preventDefault();
+    mouse.x = e.clientX; mouse.y = e.clientY; mouse.down = true;
+  });
+  canvas.addEventListener('pointerup', e => { if (e.pointerType === 'touch') mouse.down = false; });
+  canvas.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') mouse.down = false; });
+  document.querySelectorAll('.touch-move [data-key]').forEach(button => {
+    const release = event => { event.preventDefault(); keys[button.dataset.key] = false; };
+    button.addEventListener('pointerdown', event => { event.preventDefault(); button.setPointerCapture?.(event.pointerId); keys[button.dataset.key] = true; });
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('lostpointercapture', () => { keys[button.dataset.key] = false; });
+  });
+  document.querySelector('[data-touch-action="dash"]')?.addEventListener('pointerdown', event => {
+    event.preventDefault(); keys[' '] = true; setTimeout(() => { keys[' '] = false; }, 80);
+  });
+  document.querySelector('[data-touch-action="detonate"]')?.addEventListener('pointerdown', event => {
+    event.preventDefault(); if (state === 'playing') detonateBullet();
+  });
   addEventListener('mousedown', e => {
     if (state === 'title') return;
     if (state === 'gameover' || state === 'victory'){ return; }

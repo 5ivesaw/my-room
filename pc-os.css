@@ -2747,3 +2747,412 @@ body.pc-open #pause-overlay {
 .w12-desktop.desktop-fullscreen-app .w12-window.max .resize-handle {
     display: none !important;
 }
+
+/* v61: phone, tablet, and touch-first desktop shell */
+#pc-os-overlay,
+#pc-os-overlay *,
+#pc-os-overlay *::before,
+#pc-os-overlay *::after {
+    box-sizing: border-box;
+}
+
+#pc-os-overlay {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overscroll-behavior: none;
+}
+
+.pc-shell {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+}
+
+.pc-os-root button,
+.pc-close {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.pc-os-root button:focus-visible,
+.pc-os-root input:focus-visible,
+.pc-os-root select:focus-visible,
+.pc-os-root textarea:focus-visible,
+.pc-close:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent, #4cc9ff), transparent 48%);
+    outline-offset: 2px;
+}
+
+.pc-os-root button:active,
+.pc-close:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.window-body,
+.start-menu,
+.quick-panel,
+.setup-panel,
+.installer-card {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent), transparent 48%) transparent;
+}
+
+@media (hover: none), (pointer: coarse) {
+    .pc-os-root button,
+    .pc-close {
+        min-height: 44px;
+    }
+
+    .pc-os-root button:hover,
+    .pc-close:hover {
+        transform: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .pc-frame-top {
+        height: auto;
+        min-height: calc(46px + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+        flex: 0 0 auto;
+    }
+
+    .pc-frame-dot {
+        flex: 0 0 auto;
+    }
+
+    .pc-close {
+        min-width: 74px;
+        padding-inline: 14px;
+        border-radius: 12px;
+    }
+
+    .w12-stage {
+        padding: 14px max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        overflow: auto;
+        overscroll-behavior: contain;
+        align-items: start;
+    }
+
+    .power-card,
+    .installer-card,
+    .setup-panel,
+    .login-card,
+    .nosignal-card {
+        width: 100%;
+        max-width: 680px;
+        margin: auto;
+        padding: clamp(18px, 4.5vw, 26px);
+        border-radius: 22px;
+    }
+
+    .power-card h1,
+    .installer-card h1,
+    .setup-panel h1,
+    .login-card h1 {
+        font-size: clamp(34px, 9vw, 54px);
+        line-height: 0.98;
+        overflow-wrap: anywhere;
+    }
+
+    .power-grid,
+    .setup-split,
+    .boot-layout,
+    .progress-card,
+    .start-lower,
+    .firmware-grid,
+    .settings-app,
+    .taskmgr-app,
+    .store-grid,
+    .games-app,
+    .wallpaper-row {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .setup-side,
+    .device-preview {
+        min-width: 0;
+    }
+
+    .device-screen {
+        height: clamp(170px, 42vw, 250px);
+    }
+
+    .boot-menu-panel button {
+        min-height: 76px;
+    }
+
+    .window-layer {
+        inset: 0 0 calc(60px + env(safe-area-inset-bottom));
+    }
+
+    .w12-window,
+    .w12-window.max {
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        border-width: 0 !important;
+        border-radius: 0 !important;
+        transform: none !important;
+    }
+
+    .window-titlebar,
+    .w12-desktop.desktop-fullscreen-app .w12-window.max .window-titlebar {
+        height: 50px !important;
+        min-height: 50px !important;
+        padding: 0 8px 0 max(12px, env(safe-area-inset-left));
+        gap: 8px;
+    }
+
+    .window-titlebar > strong {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .window-controls {
+        gap: 4px;
+        flex: 0 0 auto;
+    }
+
+    .window-controls button {
+        width: 42px;
+        height: 42px;
+        min-height: 42px;
+    }
+
+    .resize-handle {
+        display: none !important;
+    }
+
+    .window-body {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .desktop-icons {
+        top: max(12px, env(safe-area-inset-top));
+        left: max(10px, env(safe-area-inset-left));
+        right: max(10px, env(safe-area-inset-right));
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 82px;
+        grid-template-columns: none;
+        grid-template-rows: 82px;
+        gap: 8px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+    }
+
+    .desktop-icons::-webkit-scrollbar {
+        display: none;
+    }
+
+    .desktop-icon {
+        width: 82px;
+        min-height: 78px;
+        padding: 5px;
+    }
+
+    .desktop-widget {
+        display: none;
+    }
+
+    .w12-taskbar {
+        left: max(6px, env(safe-area-inset-left));
+        right: max(6px, env(safe-area-inset-right));
+        bottom: max(6px, env(safe-area-inset-bottom));
+        height: 52px;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 16px;
+    }
+
+    .start-button,
+    .task-pins button,
+    .tray {
+        height: 42px;
+        min-height: 42px;
+    }
+
+    .task-search,
+    .task-running {
+        display: none;
+    }
+
+    .task-pins {
+        flex: 1;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .task-pins button {
+        width: 42px;
+        flex: 0 0 42px;
+    }
+
+    .tray {
+        padding-inline: 9px;
+        font-size: 11px;
+    }
+
+    .start-menu,
+    .quick-panel {
+        left: max(8px, env(safe-area-inset-left));
+        right: max(8px, env(safe-area-inset-right));
+        bottom: calc(66px + env(safe-area-inset-bottom));
+        width: auto;
+        max-height: calc(100% - 82px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        padding: 14px;
+        border-radius: 20px;
+        overflow: auto;
+        overscroll-behavior: contain;
+    }
+
+    .start-app-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .start-app-grid button {
+        min-width: 0;
+        min-height: 76px;
+        padding-inline: 5px;
+    }
+
+    .start-app-grid button span,
+    .start-app-grid button strong {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .quick-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .notification-stack {
+        left: max(8px, env(safe-area-inset-left));
+        right: max(8px, env(safe-area-inset-right));
+        width: auto;
+    }
+
+    .files-toolbar,
+    .game-toolbar,
+    .browser-bar,
+    .note-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .file-row {
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .browser-page iframe,
+    .gamehub-frame,
+    .veilchat-frame {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 520px) {
+    .pc-frame-top {
+        font-size: 12px;
+    }
+
+    .pc-frame-top > span:not(.pc-frame-dot) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .brand-row {
+        align-items: flex-start;
+    }
+
+    .brand-chip {
+        flex: 0 0 42px;
+    }
+
+    .choice-grid,
+    .utility-grid,
+    .stat-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .device-screen > span:nth-of-type(2) {
+        left: 34%;
+        width: 34%;
+    }
+
+    .start-app-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .quick-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tray span:first-child {
+        display: none;
+    }
+
+    .settings-app aside,
+    .settings-app main,
+    .files-app,
+    .browser-app,
+    .store-app,
+    .games-app,
+    .notepad-app,
+    .taskmgr-app {
+        min-width: 0;
+    }
+}
+
+@media (orientation: landscape) and (max-height: 560px) and (max-width: 960px) {
+    .pc-frame-top {
+        min-height: calc(40px + env(safe-area-inset-top));
+    }
+
+    .window-layer {
+        bottom: calc(52px + env(safe-area-inset-bottom));
+    }
+
+    .window-titlebar,
+    .w12-desktop.desktop-fullscreen-app .w12-window.max .window-titlebar {
+        height: 44px !important;
+        min-height: 44px !important;
+    }
+
+    .w12-taskbar {
+        height: 46px;
+    }
+
+    .power-grid,
+    .setup-split,
+    .boot-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) !important;
+    }
+
+    .device-screen {
+        height: 150px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #pc-os-overlay *,
+    #pc-os-overlay *::before,
+    #pc-os-overlay *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
