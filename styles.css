@@ -1836,3 +1836,85 @@ button:active,
 .audience-actions button[type="submit"] { color:#170308; border-color:transparent; background:linear-gradient(135deg,#f5e5c6,#c91c38); }
 .audience-actions button:disabled { opacity:.55; cursor:wait; }
 @media (max-width:520px) { .audience-actions { display:grid; grid-template-columns:1fr; } }
+
+/* v63: restore a true desktop-scale launch menu.
+   The earlier v45 hotfix capped the panel at 420px on every device, so desktop
+   screens inherited a phone-width layout even when no mobile media query ran. */
+@media (min-width: 901px) {
+    .start-panel {
+        width: min(900px, calc(100vw - 96px));
+        max-height: calc(100dvh - 48px);
+        padding: 28px 34px 30px;
+        border-radius: 14px;
+        text-align: left;
+    }
+
+    .start-kicker {
+        margin: 0 0 8px;
+        font-size: 11px;
+    }
+
+    .start-panel h1 {
+        margin: 0;
+        font-size: clamp(58px, 6vw, 82px);
+        line-height: 0.88;
+    }
+
+    .start-copy {
+        display: block;
+        max-width: 72ch;
+        margin: 14px 0 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: rgba(249, 242, 220, 0.7);
+    }
+
+    .start-actions {
+        justify-content: flex-start;
+        margin: 18px 0 0;
+    }
+
+    .start-actions span {
+        display: inline;
+    }
+
+    #enter-btn {
+        min-width: 250px;
+    }
+
+    .start-tips {
+        grid-template-columns: 92px repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 20px;
+        padding: 10px;
+    }
+
+    .start-tips span {
+        padding-inline: 12px;
+    }
+
+    .start-tips b {
+        display: flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 10px 12px;
+        font-size: 11px;
+        line-height: 1.35;
+    }
+
+    .start-settings {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px 14px;
+        margin-top: 20px;
+        padding-top: 16px;
+    }
+
+    .settings-head,
+    .check-setting {
+        grid-column: 1 / -1;
+    }
+
+    .check-setting {
+        justify-content: flex-start;
+    }
+}
