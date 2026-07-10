@@ -1,12 +1,14 @@
 {
   "name": "my-room-kingdom-companion",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Secure tray presence, audience inbox, and Royal Mail companion for My Kingdom",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win --x64 --publish never"
+    "build:win": "electron-builder --win --x64 --publish never",
+    "build:win:installer": "electron-builder --win nsis --x64 --publish never",
+    "build:win:portable": "electron-builder --win portable --x64 --publish never"
   },
   "devDependencies": {
     "electron": "43.1.0",
@@ -52,7 +54,18 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Kingdom Companion"
+      "shortcutName": "Kingdom Companion",
+      "artifactName": "Kingdom-Companion-Setup-${version}-${arch}.${ext}"
+    },
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US"
+    ],
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "removePackageScripts": true,
+    "portable": {
+      "artifactName": "Kingdom-Companion-Portable-${version}-${arch}.${ext}"
     }
   }
 }

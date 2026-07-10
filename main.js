@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=67';
+import { createWorld } from './world.js?v=68';
 import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
@@ -8,11 +8,12 @@ import { startKingdomPresence } from './kingdom-presence.js?v=2';
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
 const QUALITY_PROFILES = {
-    // The CSS canvas always fills the viewport; these values affect only the
-    // internal drawing buffer. This keeps camera input responsive on older iGPUs.
-    performance: { pixelRatio: 0.48, minPixelRatio: 0.32 },
-    balanced: { pixelRatio: 0.64, minPixelRatio: 0.42 },
-    quality: { pixelRatio: 0.82, minPixelRatio: 0.54 }
+    // Motion-aware resolution: movement stays light on older iGPUs, while the
+    // renderer sharpens itself after the camera rests so signs and fine details
+    // do not remain permanently smeared.
+    performance: { movingPixelRatio: 0.52, idlePixelRatio: 0.74, minPixelRatio: 0.38 },
+    balanced: { movingPixelRatio: 0.68, idlePixelRatio: 0.90, minPixelRatio: 0.48 },
+    quality: { movingPixelRatio: 0.82, idlePixelRatio: 1.00, minPixelRatio: 0.62 }
 };
 const DEFAULT_SETTINGS = {
     quality: 'performance',
@@ -79,14 +80,23 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
 renderer.sortObjects = false;
 
-let activePixelRatio = 0.48;
+let activePixelRatio = QUALITY_PROFILES[settings.quality].movingPixelRatio;
 let adaptiveFrameMs = 16.7;
 let adaptiveTimer = 0;
 let adaptiveCooldown = 0;
 
+let lastRenderMotionAt = performance.now();
+const markRenderMotion = () => { lastRenderMotionAt = performance.now(); };
+window.addEventListener('pointermove', markRenderMotion, { passive: true });
+window.addEventListener('touchmove', markRenderMotion, { passive: true });
+window.addEventListener('keydown', markRenderMotion, { passive: true });
+window.addEventListener('wheel', markRenderMotion, { passive: true });
+
 function targetPixelRatio() {
     const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
-    return Math.min(window.devicePixelRatio || 1, profile.pixelRatio);
+    const cameraIsResting = performance.now() - lastRenderMotionAt > 420;
+    const desired = cameraIsResting ? profile.idlePixelRatio : profile.movingPixelRatio;
+    return Math.min(window.devicePixelRatio || 1, desired);
 }
 
 function applyRenderScale(nextRatio = targetPixelRatio()) {
@@ -107,10 +117,14 @@ function updateAdaptiveResolution(dt) {
     const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
     const maxRatio = targetPixelRatio();
     let next = activePixelRatio;
-    if (adaptiveFrameMs > 20.5 && activePixelRatio > profile.minPixelRatio + 0.01) {
+    if (activePixelRatio > maxRatio + 0.01) {
+        // Drop immediately when movement resumes; this is where responsiveness matters.
+        next = maxRatio;
+    } else if (adaptiveFrameMs > 20.5 && activePixelRatio > profile.minPixelRatio + 0.01) {
         next = Math.max(profile.minPixelRatio, activePixelRatio - 0.10);
-    } else if (adaptiveFrameMs < 16.8 && activePixelRatio < maxRatio - 0.01) {
-        next = Math.min(maxRatio, activePixelRatio + 0.025);
+    } else if (adaptiveFrameMs < 17.4 && activePixelRatio < maxRatio - 0.01) {
+        // Sharpen more quickly once the camera is still.
+        next = Math.min(maxRatio, activePixelRatio + 0.055);
     }
     if (Math.abs(next - activePixelRatio) >= 0.01) {
         applyRenderScale(next);

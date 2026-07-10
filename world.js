@@ -3236,13 +3236,27 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     throneGlow.position.set(0, 2.25, 1.6);
     throneGroup.add(throneGlow);
 
+    // This plaque is intentionally much higher resolution than the wall/floor
+    // textures. It updates only when presence changes, so the extra texels cost
+    // almost nothing per frame but remain legible even with adaptive rendering.
+    const PLAQUE_W = 2048;
+    const PLAQUE_H = 512;
     const plaqueCanvas = document.createElement('canvas');
-    plaqueCanvas.width = 768;
-    plaqueCanvas.height = 190;
-    const plaqueCtx = plaqueCanvas.getContext('2d');
+    plaqueCanvas.width = PLAQUE_W;
+    plaqueCanvas.height = PLAQUE_H;
+    const plaqueCtx = plaqueCanvas.getContext('2d', { alpha: false });
+    plaqueCtx.imageSmoothingEnabled = true;
+    plaqueCtx.imageSmoothingQuality = 'high';
     const plaqueTexture = new THREE.CanvasTexture(plaqueCanvas);
     plaqueTexture.colorSpace = THREE.SRGBColorSpace;
-    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.59), new THREE.MeshBasicMaterial({ map: plaqueTexture, transparent: true }));
+    plaqueTexture.anisotropy = 16;
+    plaqueTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    plaqueTexture.magFilter = THREE.LinearFilter;
+    plaqueTexture.generateMipmaps = true;
+    const plaque = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.55, 0.64),
+        new THREE.MeshBasicMaterial({ map: plaqueTexture, toneMapped: false })
+    );
     plaque.position.set(0, 4.66, 0.36);
     throneGroup.add(plaque);
 
@@ -3256,23 +3270,28 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     let kingPresence = { status: 'offline', message: 'The throne stands silent.', online: false };
     function drawPresencePlaque() {
-        plaqueCtx.clearRect(0, 0, 768, 190);
-        plaqueCtx.fillStyle = 'rgba(7, 2, 5, 0.96)';
-        plaqueCtx.fillRect(0, 0, 768, 190);
-        plaqueCtx.strokeStyle = kingPresence.online ? '#d41435' : '#9f927b';
-        plaqueCtx.lineWidth = 9;
-        plaqueCtx.strokeRect(7, 7, 754, 176);
+        plaqueCtx.clearRect(0, 0, PLAQUE_W, PLAQUE_H);
+        plaqueCtx.fillStyle = '#070205';
+        plaqueCtx.fillRect(0, 0, PLAQUE_W, PLAQUE_H);
+        plaqueCtx.strokeStyle = kingPresence.online ? '#d41435' : '#b8aa90';
+        plaqueCtx.lineWidth = 22;
+        plaqueCtx.strokeRect(18, 18, PLAQUE_W - 36, PLAQUE_H - 36);
         plaqueCtx.textAlign = 'center';
-        plaqueCtx.fillStyle = '#efe4cf';
-        plaqueCtx.font = 'bold 38px serif';
-        plaqueCtx.fillText('THE SOVEREIGN', 384, 56);
-        plaqueCtx.fillStyle = kingPresence.online ? '#ff3155' : '#c2b49b';
-        plaqueCtx.font = 'bold 30px monospace';
-        plaqueCtx.fillText(String(kingPresence.status || 'offline').toUpperCase(), 384, 106);
-        plaqueCtx.fillStyle = '#c7baa5';
-        plaqueCtx.font = '22px serif';
-        const detail = String(kingPresence.message || '').slice(0, 58);
-        plaqueCtx.fillText(detail || 'No decree has been posted.', 384, 151);
+        plaqueCtx.textBaseline = 'middle';
+        plaqueCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        plaqueCtx.shadowBlur = 12;
+        plaqueCtx.shadowOffsetY = 8;
+        plaqueCtx.fillStyle = '#fff2d7';
+        plaqueCtx.font = '700 104px Georgia, "Times New Roman", serif';
+        plaqueCtx.fillText('THE SOVEREIGN', PLAQUE_W / 2, 134);
+        plaqueCtx.fillStyle = kingPresence.online ? '#ff3155' : '#d2c3a7';
+        plaqueCtx.font = '800 82px ui-monospace, Consolas, monospace';
+        plaqueCtx.fillText(String(kingPresence.status || 'offline').toUpperCase(), PLAQUE_W / 2, 276);
+        plaqueCtx.fillStyle = '#e0d4be';
+        plaqueCtx.font = '54px Georgia, "Times New Roman", serif';
+        const detail = String(kingPresence.message || '').slice(0, 62) || 'No decree has been posted.';
+        plaqueCtx.fillText(detail, PLAQUE_W / 2, 410, PLAQUE_W - 150);
+        plaqueCtx.shadowColor = 'transparent';
         plaqueTexture.needsUpdate = true;
     }
 

@@ -56,3 +56,9 @@ Never commit:
 - OAuth client secrets
 - signing certificates/private keys
 - passwords, access tokens, or exported plaintext chats
+
+## Build size
+
+GitHub Actions publishes the installer and portable executable as **two separate artifacts**. Download only one of them; the old combined artifact contained both copies and was therefore close to twice the useful download size. Builds also use maximum compression and retain only the English Chromium locale.
+
+The installed application is still larger than a normal web page because Electron includes its own Chromium and Node.js runtime. `node_modules/` and `dist/` are local/generated folders and are not committed.

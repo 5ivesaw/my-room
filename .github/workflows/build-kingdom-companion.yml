@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   windows-build:
-    name: Windows installer and portable app
+    name: Compact Windows builds
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -38,15 +38,25 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
 
-      - name: Build Windows executables
+      - name: Build maximally-compressed Windows executables
         run: npm run build:win
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Upload downloadable build
+      - name: Upload installer only
         uses: actions/upload-artifact@v4
         with:
-          name: Kingdom-Companion-Windows
-          path: kingdom-companion/dist/*.exe
+          name: Kingdom-Companion-Installer
+          path: kingdom-companion/dist/Kingdom-Companion-Setup-*.exe
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload portable app only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kingdom-Companion-Portable
+          path: kingdom-companion/dist/Kingdom-Companion-Portable-*.exe
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30
