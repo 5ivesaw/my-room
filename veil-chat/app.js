@@ -25,8 +25,11 @@ const LS_BROWSER_NOTICES = 'veil.browserNotices.v1';
 const LS_PRIVATE_KEY = 'veil.privateKey.v1';
 const LS_PUBLIC_KEY = 'veil.publicKey.v1';
 const AVATAR_COLORS = ['#101626', '#7c5cff', '#25d0ff', '#50f2a0', '#ffcb6b', '#ff4d6d', '#ffffff', '#ff8bd2'];
-const MAX_ATTACHMENT_BYTES = 260 * 1024;
+const MAX_ATTACHMENT_BYTES = 380 * 1024;
 const MAX_ENCRYPTED_TEXT = 1600;
+const SEND_COOLDOWN_MS = 4000;
+const SENDS_PER_MINUTE = 6;
+const AUDIENCE_MODE = new URLSearchParams(location.search).get('audience') === '1';
 const EMOJI_SET = ['😀','😂','😭','🔥','💀','❤️','👍','🙏','👀','😳','😎','🤝','✨','🎉','💯','😈','😴','🤯','😤','🥶','🙄','😐','😔','🫡','🍕','☕','🎮','📍','⚠️','✅','❌','🔒'];
 const GIF_PRESETS = [
   { id: 'party', label: 'Party', emoji: '🎉', caption: 'party time' },
@@ -57,6 +60,10 @@ let privateKey = null;
 let publicKeyJwk = null;
 let unsubFriendRequests = null;
 let unsubFriends = null;
+let recentSendTimes = [];
+let activeRecorder = null;
+let lastSystemNoticeAt = 0;
+let suppressedSystemNotices = 0;
 
 const state = {
   status: 'setup',
@@ -374,7 +381,7 @@ async function fileToAttachment(file) {
   if (file.type.startsWith('image/')) return compressImageFile(file);
   if (file.size > MAX_ATTACHMENT_BYTES) throw new Error(`File too large. Max ${Math.round(MAX_ATTACHMENT_BYTES / 1024)} KB because this free version stores encrypted attachments inside Firestore messages.`);
   return {
-    kind: 'file',
+    kind: file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : 'file',
     name: safeFileName(file.name || 'attachment.bin'),
     mime: file.type || 'application/octet-stream',
     size: file.size,
@@ -429,6 +436,12 @@ function renderAttachment(attachment) {
   const size = attachment.size ? `${Math.max(1, Math.round(attachment.size / 1024))} KB` : '';
   if (attachment.kind === 'image') {
     return `<figure class="attachment-card image-attachment"><img src="${dataUrl}" alt="${name}" loading="lazy"><figcaption><span>${name}</span><a href="${dataUrl}" download="${name}">Save</a></figcaption></figure>`;
+  }
+  if (attachment.kind === 'audio') {
+    return `<figure class="attachment-card media-attachment"><audio controls preload="metadata" src="${dataUrl}"></audio><figcaption>${name} · ${size}</figcaption></figure>`;
+  }
+  if (attachment.kind === 'video') {
+    return `<figure class="attachment-card media-attachment"><video controls playsinline preload="metadata" src="${dataUrl}"></video><figcaption>${name} · ${size}</figcaption></figure>`;
   }
   return `<a class="attachment-card file-attachment" href="${dataUrl}" download="${name}"><b>Attachment</b><span>${name}</span><em>${size}</em></a>`;
 }
@@ -780,8 +793,20 @@ function subscribeRoom() {
 
 async function sendMessage(text, extras = {}) {
   if (!room || !cryptoKey || sending) return;
-  const clean = String(text || '').trim();
+  let clean = String(text || '').trim();
   if (!clean && !extras.attachment && !extras.gif) return;
+  const now = Date.now();
+  recentSendTimes = recentSendTimes.filter((time) => now - time < 60000);
+  const waitMs = recentSendTimes.length ? SEND_COOLDOWN_MS - (now - recentSendTimes.at(-1)) : 0;
+  if (waitMs > 0) {
+    toast(`The throne accepts one message every ${Math.ceil(SEND_COOLDOWN_MS / 1000)} seconds.`);
+    return;
+  }
+  if (recentSendTimes.length >= SENDS_PER_MINUTE) {
+    toast('Audience limit reached. Wait before addressing My Lord again.');
+    return;
+  }
+  if (AUDIENCE_MODE && clean && !/^my lord\b[,:-]?/i.test(clean)) clean = `My Lord, ${clean}`;
   sending = true;
   try {
     const encrypted = await encryptPayload({
@@ -799,6 +824,7 @@ async function sendMessage(text, extras = {}) {
       createdAt: serverTimestamp(),
       expiresAt
     });
+    recentSendTimes.push(Date.now());
     state.replyTo = null;
     state.picker = null;
     playSendSound();
@@ -806,6 +832,43 @@ async function sendMessage(text, extras = {}) {
     toast(`Send failed: ${error.message}`);
   } finally {
     sending = false;
+  }
+}
+
+async function toggleVoiceRecording(button) {
+  if (activeRecorder) {
+    activeRecorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    toast('Voice recording is not supported in this browser.');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 24000 });
+    activeRecorder = recorder;
+    button.textContent = 'Stop voice';
+    button.classList.add('recording');
+    recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+    recorder.addEventListener('stop', async () => {
+      stream.getTracks().forEach((track) => track.stop());
+      activeRecorder = null;
+      const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+      if (blob.size > MAX_ATTACHMENT_BYTES) {
+        toast('Voice message was too large. Keep it under 15 seconds.');
+      } else if (blob.size) {
+        await sendAttachment(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }), AUDIENCE_MODE ? 'My Lord, a voice message.' : 'Voice message');
+        renderChat();
+      }
+    }, { once: true });
+    recorder.start(500);
+    toast('Recording voice — maximum 15 seconds.');
+    window.setTimeout(() => { if (activeRecorder === recorder && recorder.state === 'recording') recorder.stop(); }, 15000);
+  } catch (error) {
+    activeRecorder = null;
+    toast(`Microphone unavailable: ${error.message}`);
   }
 }
 
@@ -904,11 +967,18 @@ function notifyIncoming(message) {
   setTimeout(() => node.remove(), 5200);
 
   if (state.browserNotices && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    const now = Date.now();
+    if (now - lastSystemNoticeAt < 5 * 60 * 1000) {
+      suppressedSystemNotices++;
+      return;
+    }
     try {
       new Notification(`${nameForMessage(message)} in ${room?.label || 'Veil Chat'}`, {
-        body: String(message.text || '').slice(0, 120),
+        body: `${String(message.text || message.attachment?.name || 'New encrypted message').slice(0, 105)}${suppressedSystemNotices ? ` · ${suppressedSystemNotices} quieter messages` : ''}`,
         tag: `veil-${room?.id || 'room'}`
       });
+      lastSystemNoticeAt = now;
+      suppressedSystemNotices = 0;
     } catch {}
   }
 }
@@ -1167,10 +1237,11 @@ function renderChat() {
           <button type="button" id="emojiButton" class="${state.picker === 'emoji' ? 'active' : ''}">Emoji</button>
           <button type="button" id="gifButton" class="${state.picker === 'gif' ? 'active' : ''}">GIF</button>
           <button type="button" id="attachButton">Attach</button>
-          <span>Paste images/files, GIF URLs, or YouTube links</span>
+          <button type="button" id="voiceButton">Voice</button>
+          <span>${AUDIENCE_MODE ? 'Messages are automatically addressed to My Lord' : 'Paste screenshots, short videos/files, GIF URLs, or YouTube links'}</span>
         </div>
         <div class="composer-row">
-          <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="Type encrypted message, paste image, or drop a file..." autocomplete="off">${escapeHtml(state.draft)}</textarea>
+          <textarea name="message" rows="1" maxlength="${MAX_ENCRYPTED_TEXT}" placeholder="${AUDIENCE_MODE ? 'Address My Lord…' : 'Type encrypted message, paste image, or drop a file…'}" autocomplete="off">${escapeHtml(state.draft)}</textarea>
           <button type="submit">Send</button>
         </div>
         <input id="fileInput" type="file" hidden>
@@ -1256,6 +1327,7 @@ function renderChat() {
   });
 
   document.getElementById('attachButton')?.addEventListener('click', () => fileInput?.click());
+  document.getElementById('voiceButton')?.addEventListener('click', (event) => toggleVoiceRecording(event.currentTarget));
   fileInput?.addEventListener('change', async () => {
     const file = fileInput.files?.[0];
     fileInput.value = '';

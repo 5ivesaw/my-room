@@ -1813,3 +1813,19 @@ button:active,
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Kingdom audience overlay */
+.audience-panel { position:fixed; inset:0; z-index:900; display:grid; place-items:center; padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); pointer-events:auto; background:radial-gradient(circle at 50% 26%,rgba(163,8,30,.24),transparent 30rem),rgba(2,1,3,.78); backdrop-filter:blur(14px) saturate(120%); }
+.audience-panel.hidden { display:none; }
+.audience-card { width:min(620px,100%); max-height:calc(100dvh - 32px); overflow:auto; padding:clamp(22px,5vw,38px); border:1px solid rgba(211,29,57,.52); border-radius:6px; color:#eee4d2; background:linear-gradient(145deg,rgba(110,5,22,.16),transparent 42%),rgba(10,6,10,.96); box-shadow:0 36px 120px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.08),0 0 55px rgba(185,9,35,.18); clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px)); }
+.audience-kicker { margin:0 0 12px; color:#df2743; font:800 11px/1.2 ui-monospace,monospace; letter-spacing:.18em; text-transform:uppercase; }
+.audience-status-row { display:flex; align-items:center; gap:9px; color:rgba(238,228,210,.7); text-transform:uppercase; letter-spacing:.1em; font-size:12px; }
+.audience-presence-dot { width:10px; height:10px; border-radius:50%; background:#887e70; box-shadow:0 0 14px rgba(136,126,112,.5); }
+.audience-panel.online .audience-presence-dot { background:#ff163c; box-shadow:0 0 20px #ff163c; }
+.audience-card h2 { margin:18px 0 10px; font-family:Georgia,'Times New Roman',serif; font-size:clamp(34px,7vw,58px); line-height:.96; letter-spacing:-.04em; }
+.audience-decree,.audience-rule { color:rgba(238,228,210,.74); line-height:1.6; text-wrap:pretty; }
+.audience-rule { padding:13px 15px; border-left:3px solid #a80b27; background:rgba(255,255,255,.04); font-size:13px; }
+.audience-actions { display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
+.audience-actions a,.audience-actions button { min-height:48px; display:inline-flex; align-items:center; justify-content:center; margin:0; padding:0 18px; border:1px solid rgba(255,255,255,.17); border-radius:10px; color:#f7eddb; background:rgba(255,255,255,.07); font:800 13px/1 system-ui,sans-serif; text-decoration:none; }
+.audience-actions a { color:#170308; border-color:transparent; background:linear-gradient(135deg,#f5e5c6,#c91c38); }
+@media (max-width:520px) { .audience-actions { display:grid; grid-template-columns:1fr; } }

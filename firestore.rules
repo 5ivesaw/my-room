@@ -24,6 +24,25 @@ service cloud.firestore {
         && get(roomDoc(roomId)).data.createdBy == request.auth.uid;
     }
 
+    function isSovereign() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/kingdom/config)
+        && get(/databases/$(database)/documents/kingdom/config).data.ownerUid == request.auth.uid;
+    }
+
+    match /kingdom/{documentId} {
+      // Presence is intentionally public: the room needs it before a visitor joins chat.
+      allow get: if documentId == 'presence';
+      allow list: if false;
+      allow create, update: if documentId == 'presence'
+        && isSovereign()
+        && request.resource.data.status in ['online', 'busy', 'sleeping', 'offline']
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 120
+        && (!request.resource.data.keys().hasAny(['contactUid']) || (request.resource.data.contactUid is string && request.resource.data.contactUid.size() <= 128));
+      allow delete: if false;
+    }
+
     function validPublicProfile(data, uid) {
       return data.uid == uid
         && data.displayName is string

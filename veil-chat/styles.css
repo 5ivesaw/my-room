@@ -2029,3 +2029,9 @@ body:has(.setup-screen) {
     transition-duration: 0.01ms !important;
   }
 }
+
+.composer-tools button.recording { color:#fff; border-color:#ff4d6d; background:linear-gradient(135deg,#7a1028,#ff4d6d); animation:recordPulse 1s ease-in-out infinite alternate; }
+.media-attachment { width:min(520px,100%); margin:8px 0 0; overflow:hidden; }
+.media-attachment audio,.media-attachment video { display:block; width:100%; max-height:340px; border-radius:14px; background:#03050a; }
+.media-attachment figcaption { padding:7px 3px 0; color:var(--muted); font-size:12px; }
+@keyframes recordPulse { to { box-shadow:0 0 24px rgba(255,77,109,.48); } }

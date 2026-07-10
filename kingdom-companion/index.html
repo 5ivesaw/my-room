@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src https://*.googleapis.com https://*.firebaseio.com wss://*.googleapis.com wss://*.firebaseio.com; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <title>Kingdom Companion</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <p class="kicker">Sovereign control</p>
+    <h1>The Throne</h1>
+    <p class="lead">This app publishes only your chosen status and keeps the encrypted chat page alive in a sandboxed window.</p>
+    <section id="authCard" class="card">
+      <h2>Owner sign-in</h2>
+      <input id="email" type="email" autocomplete="username" placeholder="Firebase owner email">
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+      <button id="signIn">Sign in securely</button>
+      <p class="fine">Your password is sent directly to Firebase Auth and is never written to this app's settings file.</p>
+    </section>
+    <section id="presenceCard" class="card hidden">
+      <div class="identity"><span id="presenceDot"></span><strong id="ownerEmail">Signed in</strong></div>
+      <label>Status<select id="status"><option value="online">Online</option><option value="busy">Busy</option><option value="sleeping">Sleeping</option><option value="offline">Offline</option></select></label>
+      <label>Decree<input id="message" maxlength="120" placeholder="What visitors see at the throne"></label>
+      <label>Veil contact UID<input id="contactUid" maxlength="128" placeholder="Paste the UID from your Veil friend link"></label>
+      <button id="publish">Publish to the throne</button>
+      <button id="signOut" class="secondary">Sign out</button>
+    </section>
+    <section class="card">
+      <h2>Audience messages</h2>
+      <input id="chatUrl" type="url" placeholder="https://your-site/veil-chat/?audience=1">
+      <div class="row"><button id="saveChat" class="secondary">Save secure URL</button><button id="openChat" class="secondary">Open messages</button></div>
+      <label class="check"><input id="startup" type="checkbox"> Start companion when I sign into Windows</label>
+      <p id="notice" class="fine"></p>
+    </section>
+  </main>
+  <script src="firebase-config.js"></script>
+  <script type="module" src="renderer.js"></script>
+</body>
+</html>

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=54';
-import { Player } from './player.js?v=53';
+import { createWorld } from './world.js?v=62';
+import { Player } from './player.js?v=62';
 import { InteractionSystem } from './interactions.js?v=52';
 import { sounds } from './sounds.js?v=49';
+import { startKingdomPresence } from './kingdom-presence.js?v=1';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
@@ -101,6 +102,36 @@ const mobileInteractBtn = document.getElementById('mobile-interact');
 const mobileSecondaryBtn = document.getElementById('mobile-secondary');
 const mobileFullscreenBtn = document.getElementById('mobile-fullscreen');
 const mobilePiano = document.getElementById('mobile-piano');
+const audiencePanel = document.getElementById('audience-panel');
+const audienceClose = document.getElementById('audience-close');
+const audienceStatus = document.getElementById('audience-status');
+const audienceDecree = document.getElementById('audience-decree');
+const audienceContact = document.getElementById('audience-contact');
+
+function applyKingdomPresence(presence = {}) {
+    const online = presence.online === true;
+    const status = String(presence.status || 'offline');
+    audiencePanel?.classList.toggle('online', online);
+    if (audienceStatus) audienceStatus.textContent = status;
+    if (audienceDecree) audienceDecree.textContent = presence.message || (online ? 'My Lord is watching from the throne.' : 'The bone throne keeps watch in my Lord\'s absence.');
+    if (audienceContact) audienceContact.href = `veil-chat/index.html?audience=1${presence.contactUid ? `&friend=${encodeURIComponent(presence.contactUid)}` : ''}`;
+    worldData?.setKingPresence?.(presence);
+}
+
+function openAudiencePanel() {
+    audiencePanel?.classList.remove('hidden');
+    document.body.classList.add('audience-open');
+    if (!mobileInput.enabled && document.pointerLockElement) document.exitPointerLock?.();
+}
+
+function closeAudiencePanel() {
+    audiencePanel?.classList.add('hidden');
+    document.body.classList.remove('audience-open');
+    if (interactions) interactions.disableE = false;
+    if (hasStarted) requestControlLock();
+}
+
+audienceClose?.addEventListener('click', closeAudiencePanel);
 
 function shouldUseMobileInput() {
     return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
@@ -887,6 +918,7 @@ enterBtn.addEventListener('click', async () => {
     }
 
     worldData = createWorld(scene, showMessage, audioCtx, sfx);
+    startKingdomPresence(applyKingdomPresence);
     applySettings();
     interactions = new InteractionSystem(camera, worldData.interactables, promptEl, handleSpecialAction);
     updateVisibilityCulling(true);
@@ -924,6 +956,15 @@ function handleSpecialAction(interactable) {
         return true;
     } else if (interactable.action === 'hangFan') {
         startHang(interactable.fanGroup, interactable.bladeGroup);
+        return true;
+    } else if (interactable.action === 'kneelThrone') {
+        startSit(interactable.kneelWorldPos, interactable.kneelLookAt, 0.66, 0.02, {
+            exitPos: interactable.kneelExitPos || null,
+            isGamingChair: false
+        });
+        if (interactions) interactions.disableE = true;
+        showMessage('You kneel before the throne. Address him as My Lord.');
+        window.setTimeout(openAudiencePanel, 1250);
         return true;
     }
     return false;

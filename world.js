@@ -2474,6 +2474,274 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         }
     });
 
+    // ============ THE SOVEREIGN'S GOTHIC KINGDOM ============
+    // This is an additive architectural layer: every original room feature remains in place.
+    const castleGroup = new THREE.Group();
+    castleGroup.name = 'gothic-castle-overhaul';
+    scene.add(castleGroup);
+
+    const castleStoneMat = new THREE.MeshStandardMaterial({ color: 0x151116, roughness: 0.9, metalness: 0.08 });
+    const castleStoneAltMat = new THREE.MeshStandardMaterial({ color: 0x241820, roughness: 0.82, metalness: 0.12 });
+    const castleIronMat = new THREE.MeshStandardMaterial({ color: 0x130d10, roughness: 0.32, metalness: 0.82 });
+    const castleRedMat = new THREE.MeshStandardMaterial({ color: 0x42030b, emissive: 0x240006, emissiveIntensity: 0.35, roughness: 0.7 });
+    const boneMat = new THREE.MeshStandardMaterial({ color: 0xc9bea5, roughness: 0.86 });
+
+    const gothicFloor = new THREE.Mesh(new THREE.PlaneGeometry(7.92, 7.92), castleStoneMat);
+    gothicFloor.rotation.x = -Math.PI / 2;
+    gothicFloor.position.y = 0.012;
+    castleGroup.add(gothicFloor);
+    for (let x = -3.5; x <= 3.5; x += 0.5) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.014, 7.9), castleStoneAltMat);
+        seam.position.set(x, 0.022, 0);
+        castleGroup.add(seam);
+    }
+    for (let z = -3.5; z <= 3.5; z += 0.5) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(7.9, 0.014, 0.012), castleStoneAltMat);
+        seam.position.set(0, 0.023, z);
+        castleGroup.add(seam);
+    }
+
+    const columnPositions = [[-3.55,-3.55],[3.55,-3.55],[-3.55,3.55],[3.55,3.55],[-1.45,-3.72],[1.45,-3.72]];
+    columnPositions.forEach(([x, z]) => {
+        const column = new THREE.Group();
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.19, 3.65, 8), castleStoneAltMat);
+        shaft.position.y = 1.85;
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.18, 8), castleIronMat);
+        base.position.y = 0.09;
+        const capital = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.16, 0.22, 8), castleIronMat);
+        capital.position.y = 3.72;
+        column.add(shaft, base, capital);
+        column.position.set(x, 0, z);
+        castleGroup.add(column);
+    });
+
+    [-2.55, 2.55].forEach((x) => {
+        const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 1.9), castleRedMat);
+        banner.position.set(x, 2.46, -3.91);
+        banner.rotation.y = Math.PI;
+        castleGroup.add(banner);
+        const spear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 4), castleIronMat);
+        spear.position.set(x, 3.58, -3.86);
+        castleGroup.add(spear);
+    });
+
+    const chandelier = new THREE.Group();
+    const chandelierRing = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.045, 8, 28), castleIronMat);
+    chandelierRing.rotation.x = Math.PI / 2;
+    chandelier.add(chandelierRing);
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 8), castleIronMat);
+    chain.position.y = 0.5;
+    chandelier.add(chain);
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const flame = new THREE.PointLight(0xb31322, 0.42, 2.2, 2);
+        flame.position.set(Math.cos(angle) * 0.72, 0.06, Math.sin(angle) * 0.72);
+        chandelier.add(flame);
+    }
+    chandelier.position.set(0, 3.05, 0.15);
+    castleGroup.add(chandelier);
+
+    // Throne and the online/offline sovereign effigy.
+    const throneGroup = new THREE.Group();
+    throneGroup.position.set(0, 0, -3.38);
+    scene.add(throneGroup);
+    const throneBackMat = new THREE.MeshStandardMaterial({ color: 0x1a090e, emissive: 0x240006, emissiveIntensity: 0.25, roughness: 0.5, metalness: 0.35 });
+    const throneGoldMat = new THREE.MeshStandardMaterial({ color: 0x6b4b21, emissive: 0x321500, emissiveIntensity: 0.18, roughness: 0.3, metalness: 0.78 });
+    const throneBack = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.35, 0.24), throneBackMat);
+    throneBack.position.set(0, 1.45, 0.2);
+    throneGroup.add(throneBack);
+    const throneSeat = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.3, 1.02), throneBackMat);
+    throneSeat.position.set(0, 0.58, 0.5);
+    throneGroup.add(throneSeat);
+    [-0.82, 0.82].forEach((x) => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 1.12), throneGoldMat);
+        arm.position.set(x, 0.92, 0.46);
+        throneGroup.add(arm);
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.42, 5), throneGoldMat);
+        spike.position.set(x, 2.82, 0.18);
+        throneGroup.add(spike);
+    });
+    const dais = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.24, 1.9), castleStoneAltMat);
+    dais.position.set(0, 0.12, 0.56);
+    throneGroup.add(dais);
+
+    const kingGroup = new THREE.Group();
+    const royalBlackMat = new THREE.MeshStandardMaterial({ color: 0x08070a, roughness: 0.52, metalness: 0.18 });
+    const royalSkinMat = new THREE.MeshStandardMaterial({ color: 0x8d7062, roughness: 0.72 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff102f });
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.48, 0.92, 8), royalBlackMat);
+    torso.position.set(0, 1.12, 0.48);
+    kingGroup.add(torso);
+    const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 14), royalSkinMat);
+    kingHead.position.set(0, 1.75, 0.55);
+    kingGroup.add(kingHead);
+    [-0.1, 0.1].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), eyeMat);
+        eye.position.set(x, 1.79, 0.81);
+        kingGroup.add(eye);
+    });
+    const crownBand = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.16, 8), throneGoldMat);
+    crownBand.position.set(0, 2.04, 0.55);
+    kingGroup.add(crownBand);
+    [-0.2, 0, 0.2].forEach((x, index) => {
+        const point = new THREE.Mesh(new THREE.ConeGeometry(0.09, index === 1 ? 0.42 : 0.34, 5), throneGoldMat);
+        point.position.set(x, 2.27 + (index === 1 ? 0.04 : 0), 0.55);
+        kingGroup.add(point);
+    });
+    [-1, 1].forEach((side) => {
+        const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.095, 0.68, 8), royalBlackMat);
+        upperArm.position.set(side * 0.42, 1.18, 0.68);
+        upperArm.rotation.z = side * -0.72;
+        upperArm.rotation.x = 0.5;
+        kingGroup.add(upperArm);
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), royalSkinMat);
+        hand.position.set(side * 0.2, 1.57, 0.82);
+        kingGroup.add(hand);
+    });
+    throneGroup.add(kingGroup);
+
+    const offlineGroup = new THREE.Group();
+    const boneBack = new THREE.Mesh(new THREE.BoxGeometry(1.28, 1.92, 0.18), boneMat);
+    boneBack.position.set(0, 1.42, 0.24);
+    offlineGroup.add(boneBack);
+    for (let i = 0; i < 5; i++) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(0.34 + i * 0.035, 0.035, 6, 14, Math.PI), boneMat);
+        rib.position.set(0, 1.22 + i * 0.12, 0.58);
+        rib.rotation.z = Math.PI;
+        offlineGroup.add(rib);
+    }
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.31, 14, 10), boneMat);
+    skull.scale.set(0.9, 1.05, 0.82);
+    skull.position.set(0, 1.78, 0.62);
+    offlineGroup.add(skull);
+    [-0.105, 0.105].forEach((x) => {
+        const socket = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), castleIronMat);
+        socket.position.set(x, 1.82, 0.86);
+        offlineGroup.add(socket);
+    });
+    throneGroup.add(offlineGroup);
+
+    const plaqueCanvas = document.createElement('canvas');
+    plaqueCanvas.width = 640;
+    plaqueCanvas.height = 190;
+    const plaqueCtx = plaqueCanvas.getContext('2d');
+    const plaqueTexture = new THREE.CanvasTexture(plaqueCanvas);
+    plaqueTexture.colorSpace = THREE.SRGBColorSpace;
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.5), new THREE.MeshBasicMaterial({ map: plaqueTexture, transparent: true }));
+    plaque.position.set(0, 2.72, 0.36);
+    throneGroup.add(plaque);
+    let kingPresence = { status: 'offline', message: 'The throne stands silent.', online: false };
+    function drawPresencePlaque() {
+        plaqueCtx.clearRect(0, 0, 640, 190);
+        plaqueCtx.fillStyle = 'rgba(8, 4, 7, 0.94)';
+        plaqueCtx.fillRect(0, 0, 640, 190);
+        plaqueCtx.strokeStyle = kingPresence.online ? '#d4142c' : '#9f927b';
+        plaqueCtx.lineWidth = 8;
+        plaqueCtx.strokeRect(6, 6, 628, 178);
+        plaqueCtx.textAlign = 'center';
+        plaqueCtx.fillStyle = '#e8ddc8';
+        plaqueCtx.font = 'bold 34px serif';
+        plaqueCtx.fillText('THE SOVEREIGN', 320, 55);
+        plaqueCtx.fillStyle = kingPresence.online ? '#ff2848' : '#b5aa94';
+        plaqueCtx.font = 'bold 28px monospace';
+        plaqueCtx.fillText(String(kingPresence.status || 'offline').toUpperCase(), 320, 101);
+        plaqueCtx.fillStyle = '#c7baa5';
+        plaqueCtx.font = '22px serif';
+        const detail = String(kingPresence.message || '').slice(0, 44);
+        plaqueCtx.fillText(detail || 'No decree has been posted.', 320, 145);
+        plaqueTexture.needsUpdate = true;
+    }
+    function setKingPresence(next = {}) {
+        const status = ['online', 'busy', 'sleeping', 'offline'].includes(next.status) ? next.status : 'offline';
+        kingPresence = { status, message: String(next.message || ''), online: next.online === true && status !== 'offline' };
+        kingGroup.visible = kingPresence.online;
+        offlineGroup.visible = !kingPresence.online;
+        eyeMat.color.setHex(status === 'busy' ? 0xff6a00 : status === 'sleeping' ? 0x701020 : 0xff102f);
+        throneBackMat.emissiveIntensity = kingPresence.online ? 0.48 : 0.06;
+        drawPresencePlaque();
+    }
+    setKingPresence(kingPresence);
+    const kneelTarget = new THREE.Vector3(0, 0, -1.72);
+    const kneelLook = new THREE.Vector3(0, 1.6, -3.18);
+    interactables.push({
+        mesh: throneSeat,
+        action: 'kneelThrone',
+        get label() { return kingPresence.online ? 'Kneel Before My Lord' : 'Kneel at the Bone Throne'; },
+        kneelWorldPos: kneelTarget,
+        kneelLookAt: kneelLook,
+        kneelExitPos: new THREE.Vector3(0.9, 1.5, -1.3)
+    });
+
+    // Toggleable skeletal pianist. When dismissed, he waits against the wall.
+    const servantGroup = new THREE.Group();
+    servantGroup.name = 'gothic-skeleton-servant';
+    scene.add(servantGroup);
+    const servantSkull = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 9), boneMat);
+    servantSkull.position.y = 1.55;
+    servantGroup.add(servantSkull);
+    const servantSpine = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.68, 8), boneMat);
+    servantSpine.position.y = 1.08;
+    servantGroup.add(servantSpine);
+    for (let i = 0; i < 4; i++) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(0.18 - i * 0.018, 0.025, 6, 12, Math.PI), boneMat);
+        rib.position.set(0, 1.28 - i * 0.1, 0);
+        rib.rotation.z = Math.PI;
+        servantGroup.add(rib);
+    }
+    const servantHands = [];
+    [-1, 1].forEach((side) => {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.62, 7), boneMat);
+        arm.position.set(side * 0.24, 1.02, 0.08);
+        arm.rotation.z = side * 0.35;
+        servantGroup.add(arm);
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), boneMat);
+        hand.position.set(side * 0.32, 0.76, 0.26);
+        servantGroup.add(hand);
+        servantHands.push(hand);
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.76, 7), boneMat);
+        leg.position.set(side * 0.12, 0.47, 0);
+        servantGroup.add(leg);
+    });
+    const servantWallPos = new THREE.Vector3(-3.35, 0, -2.55);
+    const servantPianoPos = new THREE.Vector3(2.78, 0.02, 2.78);
+    servantGroup.position.copy(servantWallPos);
+    servantGroup.rotation.y = 1.34;
+    let servantActive = false;
+    let servantNoteTimer = 0;
+    let servantNoteIndex = 0;
+    const gothicSequence = ['D5','A4','D5','F5','E5','D5','C5','A4','D5','A5','G5','F5','E5','C5','D5'];
+    function toggleServant() {
+        servantActive = !servantActive;
+        servantNoteTimer = 0;
+        servantNoteIndex = 0;
+        showMessage(servantActive ? 'The bone minstrel obeys and begins a D-minor toccata.' : 'The servant rises and waits silently by the wall.');
+    }
+    interactables.push({
+        mesh: servantSkull,
+        action: toggleServant,
+        get label() { return servantActive ? 'Dismiss Bone Minstrel' : 'Command Bone Minstrel to Play'; }
+    });
+    updatables.push({
+        update: (dt) => {
+            const target = servantActive ? servantPianoPos : servantWallPos;
+            servantGroup.position.lerp(target, Math.min(1, dt * 3.2));
+            const targetYaw = servantActive ? Math.PI / 2 : 1.34;
+            servantGroup.rotation.y += (targetYaw - servantGroup.rotation.y) * Math.min(1, dt * 3.2);
+            servantSkull.rotation.y = Math.sin(performance.now() * 0.0014) * 0.12;
+            if (!servantActive) return;
+            servantNoteTimer -= dt;
+            servantHands[0].position.y = 0.76 + Math.sin(performance.now() * 0.015) * 0.055;
+            servantHands[1].position.y = 0.76 + Math.sin(performance.now() * 0.015 + Math.PI) * 0.055;
+            if (servantNoteTimer <= 0) {
+                const noteName = gothicSequence[servantNoteIndex % gothicSequence.length];
+                const note = pianoNoteMap[noteName];
+                if (note) playPianoKey(note.freq, 0.34, 1.05);
+                servantNoteIndex++;
+                servantNoteTimer = servantNoteIndex % 4 === 0 ? 0.52 : 0.27;
+            }
+        }
+    });
+
     return {
         interactables,
         updatables,
@@ -2489,6 +2757,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             pcSystem.setPreviewMode(performanceOptions.pcPreview);
         },
         triggerPcBurst,
+        setKingPresence,
         fanGroup,
         bladeGroup,
         fanSpeed: () => fanSpeed,
@@ -2527,7 +2796,13 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             isBookAutoPlaying,
             pianoKeyCount: pianoKeyDefs.length,
             pianoKeyLabels: pianoKeyDefs.map((key) => key.label).join(' '),
-            roomDetailVersion: 11,
+            roomDetailVersion: 12,
+            kingdom: {
+                status: kingPresence.status,
+                online: kingPresence.online,
+                message: kingPresence.message,
+                servantActive
+            },
             pcRgbOn,
             pc: pcSystem.getDebugState(),
             posterScroll,

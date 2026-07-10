@@ -150,6 +150,21 @@ export class Player {
         if (newX > 3.5) newX = 3.5;
         if (newZ < -3.5) newZ = -3.5;
         if (newZ > 3.5) newZ = 3.5;
+
+        // Gothic throne and dais collision. The kneeling point remains clear in front.
+        const tMinX = -1.25;
+        const tMaxX = 1.25;
+        const tMinZ = -3.5;
+        const tMaxZ = -2.72;
+        if (newX > tMinX && newX < tMaxX && newZ > tMinZ && newZ < tMaxZ) {
+            const distMinX = Math.abs(newX - tMinX);
+            const distMaxX = Math.abs(newX - tMaxX);
+            const distMaxZ = Math.abs(newZ - tMaxZ);
+            const min = Math.min(distMinX, distMaxX, distMaxZ);
+            if (min === distMinX) newX = tMinX;
+            else if (min === distMaxX) newX = tMaxX;
+            else newZ = tMaxZ;
+        }
         
         // Desk Collision Box (Desk is at X=2, Z=-2, size 3x1.5)
         const dMinX = 0.5;

@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="A playable 3D bedroom with an interactive piano, gaming setup, and in-room PC game hub.">
+    <meta name="description" content="Enter a playable gothic kingdom with a living throne, encrypted audience chamber, piano servant, gaming setup, and in-room PC game hub.">
     <meta name="theme-color" content="#101827">
     <meta property="og:title" content="My Room">
     <meta property="og:description" content="Explore a detailed browser bedroom, sit at the gaming setup, boot the PC, and play the bundled game hub.">
     <meta property="og:type" content="website">
-    <title>My Room</title>
+    <title>My Kingdom</title>
     <link rel="icon" href="assets/my-room-icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=61">
+    <link rel="stylesheet" href="styles.css?v=62">
     <link rel="stylesheet" href="pc-os.css?v=61">
     <!-- Import map for Three.js -->
     <script type="importmap">
@@ -41,9 +41,9 @@
                 </div>
 
                 <main class="start-panel" aria-labelledby="start-title">
-                    <p class="start-kicker">interactive bedroom</p>
-                    <h1 id="start-title">My Room</h1>
-                    <p class="start-copy">Explore the room, play the piano, sit at the gaming setup, boot the PC, and open the bundled Game Hub.</p>
+                    <p class="start-kicker">the sovereign's interactive castle</p>
+                    <h1 id="start-title">My Kingdom</h1>
+                    <p class="start-copy">Enter the gothic hall, approach the living throne, command the bone minstrel, and explore every original room feature reborn inside the castle.</p>
 
                     <div class="start-actions">
                         <button id="enter-btn" type="button">Enter Room</button>
@@ -148,10 +148,28 @@
                 </div>
             </div>
 
+            <section id="audience-panel" class="audience-panel hidden" aria-labelledby="audience-title">
+                <div class="audience-card">
+                    <p class="audience-kicker">An audience with the sovereign</p>
+                    <div class="audience-status-row">
+                        <span id="audience-presence-dot" class="audience-presence-dot"></span>
+                        <strong id="audience-status">Offline</strong>
+                    </div>
+                    <h2 id="audience-title">Speak, kneeling one.</h2>
+                    <p id="audience-decree">The bone throne keeps watch in my absence.</p>
+                    <p class="audience-rule">Address the sovereign as <b>My Lord</b>. Messages are rate-limited and may be silenced while busy or sleeping.</p>
+                    <div class="audience-actions">
+                        <a id="audience-contact" href="veil-chat/index.html?audience=1" target="_blank" rel="noopener">Request a private audience</a>
+                        <button id="audience-close" type="button">Return to the hall</button>
+                    </div>
+                </div>
+            </section>
+
         </div>
         
         
-        <script type="module" src="main.js?v=61"></script>
+        <script src="veil-chat/firebase-config.js"></script>
+        <script type="module" src="main.js?v=62"></script>
     </div>
 </body>
 </html>

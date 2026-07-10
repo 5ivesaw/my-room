@@ -16,7 +16,7 @@
 
 ## What It Is
 
-**My Room** is a browser game built as a detailed first-person bedroom. It mixes room exploration, small interactions, a playable piano songbook, and an in-room PC with a fictional desktop interface. The PC includes a bundled **Game Hub** app, so the extra games are playable from inside the room instead of living as separate pages.
+**My Room: Kingdom** is a first-person gothic castle built around the original interactive bedroom. The original furniture, piano, cat, fridge, gaming PC, Veil Chat, and Game Hub remain usable inside the expanded environment.
 
 ## Features
 
@@ -31,6 +31,9 @@
   - Wake Weaver
   - Inkstain
 - Static-file friendly: no build step, no backend, no package install.
+- Live sovereign throne presence with online, busy, sleeping, and offline/bone-throne states.
+- Kneeling audience interaction and a toggleable skeletal piano servant.
+- Optional secure Windows tray companion for startup presence and persistent encrypted chat notifications.
 
 ## Controls
 
@@ -44,6 +47,8 @@
 | Piano book | Mouse clicks while seated |
 | PC access | Sit in the gaming chair and look at the monitor |
 | Chair spin | Look slightly sideways or nudge with left/right arrows |
+| Kneel at the throne | Interact with the throne, then use `Space` to stand |
+| Toggle bone pianist | Interact with the skeleton servant |
 
 ## Run Locally
 
@@ -70,6 +75,8 @@ http://localhost:8000/
 |-- pc-os.js                # In-room PC operating system
 |-- pc-os.css               # PC desktop/setup styling
 |-- styles.css              # Bedroom HUD/start styling
+|-- kingdom-presence.js    # Public read-only throne presence listener
+|-- kingdom-companion/     # Optional secure Electron tray companion
 |-- assets/                 # Audio, recordings, icon, credits
 `-- gamehub/                # Bundled playable game hub
 ```
@@ -85,7 +92,7 @@ This repo is ready for GitHub Pages. Push it to GitHub, then enable Pages from t
 The site will publish at:
 
 ```text
-https://5ivesaw.github.io/-my-room/
+https://5ivesaw.github.io/my-room/
 ```
 
 ## Credits
