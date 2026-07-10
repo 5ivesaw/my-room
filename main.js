@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=65';
+import { createWorld } from './world.js?v=66';
 import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
@@ -8,11 +8,11 @@ import { startKingdomPresence } from './kingdom-presence.js?v=2';
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
 const QUALITY_PROFILES = {
-    // Conservative defaults for older integrated GPUs. The adaptive scaler
-    // changes only internal resolution, never movement or camera timing.
-    performance: { pixelRatio: 0.58, minPixelRatio: 0.42 },
-    balanced: { pixelRatio: 0.82, minPixelRatio: 0.56 },
-    quality: { pixelRatio: 1.0, minPixelRatio: 0.72 }
+    // The CSS canvas always fills the viewport; these values affect only the
+    // internal drawing buffer. This keeps camera input responsive on older iGPUs.
+    performance: { pixelRatio: 0.48, minPixelRatio: 0.32 },
+    balanced: { pixelRatio: 0.64, minPixelRatio: 0.42 },
+    quality: { pixelRatio: 0.82, minPixelRatio: 0.54 }
 };
 const DEFAULT_SETTINGS = {
     quality: 'performance',
@@ -60,11 +60,26 @@ const renderer = new THREE.WebGLRenderer({
     precision: 'mediump',
     powerPreference: 'high-performance'
 });
-renderer.setSize(window.innerWidth, window.innerHeight, false);
+const gameContainer = document.getElementById('game-container');
+
+function getViewportSize() {
+    const rect = gameContainer?.getBoundingClientRect();
+    const visual = window.visualViewport;
+    const root = document.documentElement;
+    return {
+        width: Math.max(1, Math.round(rect?.width || visual?.width || root.clientWidth || window.innerWidth || 1)),
+        height: Math.max(1, Math.round(rect?.height || visual?.height || root.clientHeight || window.innerHeight || 1))
+    };
+}
+
+const initialViewport = getViewportSize();
+renderer.setSize(initialViewport.width, initialViewport.height, false);
+renderer.domElement.setAttribute('aria-label', 'Interactive kingdom view');
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
+renderer.sortObjects = false;
 
-let activePixelRatio = 0.58;
+let activePixelRatio = 0.48;
 let adaptiveFrameMs = 16.7;
 let adaptiveTimer = 0;
 let adaptiveCooldown = 0;
@@ -78,39 +93,40 @@ function applyRenderScale(nextRatio = targetPixelRatio()) {
     const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
     activePixelRatio = Math.max(profile.minPixelRatio, Math.min(targetPixelRatio(), nextRatio));
     renderer.setPixelRatio(activePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    const viewport = getViewportSize();
+    renderer.setSize(viewport.width, viewport.height, false);
 }
 
 function updateAdaptiveResolution(dt) {
     adaptiveFrameMs += ((dt * 1000) - adaptiveFrameMs) * 0.045;
     adaptiveTimer += dt;
     adaptiveCooldown = Math.max(0, adaptiveCooldown - dt);
-    if (adaptiveTimer < 1.25 || adaptiveCooldown > 0) return;
+    if (adaptiveTimer < 1.0 || adaptiveCooldown > 0) return;
     adaptiveTimer = 0;
 
     const profile = QUALITY_PROFILES[settings.quality] || QUALITY_PROFILES.performance;
     const maxRatio = targetPixelRatio();
     let next = activePixelRatio;
-    if (adaptiveFrameMs > 24.5 && activePixelRatio > profile.minPixelRatio + 0.01) {
-        next = Math.max(profile.minPixelRatio, activePixelRatio - 0.08);
-    } else if (adaptiveFrameMs < 17.4 && activePixelRatio < maxRatio - 0.01) {
-        next = Math.min(maxRatio, activePixelRatio + 0.04);
+    if (adaptiveFrameMs > 20.5 && activePixelRatio > profile.minPixelRatio + 0.01) {
+        next = Math.max(profile.minPixelRatio, activePixelRatio - 0.10);
+    } else if (adaptiveFrameMs < 16.8 && activePixelRatio < maxRatio - 0.01) {
+        next = Math.min(maxRatio, activePixelRatio + 0.025);
     }
     if (Math.abs(next - activePixelRatio) >= 0.01) {
         applyRenderScale(next);
-        adaptiveCooldown = 1.8;
+        adaptiveCooldown = 2.4;
     }
 }
 
 applyRenderScale();
-document.getElementById('game-container').appendChild(renderer.domElement);
+gameContainer.appendChild(renderer.domElement);
 
 // Setup Scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.FogExp2(0x000000, 0.05);
 
-const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.1, settings.drawDistance);
+const camera = new THREE.PerspectiveCamera(settings.fov, initialViewport.width / initialViewport.height, 0.1, settings.drawDistance);
 const cullFrustum = new THREE.Frustum();
 const cullMatrix = new THREE.Matrix4();
 const cullSphere = new THREE.Sphere();
@@ -570,14 +586,22 @@ function onResize() {
         player.isLocked = document.pointerLockElement === document.body;
     }
 
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const viewport = getViewportSize();
+    camera.aspect = viewport.width / viewport.height;
     applyCameraSettings();
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    applyRenderScale();
+    applyRenderScale(activePixelRatio);
     updateMobileControls();
 }
 
-window.addEventListener('resize', onResize);
+let resizeFrame = 0;
+function requestResize() {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(onResize);
+}
+
+window.addEventListener('resize', requestResize, { passive: true });
+window.visualViewport?.addEventListener('resize', requestResize, { passive: true });
+document.addEventListener('fullscreenchange', requestResize);
 
 // Pointer Lock Controls
 document.addEventListener('pointerlockchange', () => {
@@ -1127,6 +1151,10 @@ function handleSpecialAction(interactable) {
         });
         return true;
     } else if (interactable.action === 'sitPiano') {
+        if (typeof interactable.canInteract === 'function' && !interactable.canInteract()) {
+            showMessage('The bone pianist is using the bench. Dismiss him first.');
+            return true;
+        }
         reportPianoSitSpam();
         startSit(interactable.pianoWorldPos, interactable.pianoLookAt, 1.48, -0.03);
         isSittingPiano = true;
@@ -1333,7 +1361,8 @@ window.render_game_to_text = renderGameToText;
 
 function updateVisibilityCulling(force = false) {
     if (!worldData || !worldData.cullables || !worldData.cullables.length) return;
-    if (!force && cullTimer < 0.20) return;
+    const cullInterval = settings.quality === 'performance' ? 0.34 : settings.quality === 'balanced' ? 0.24 : 0.18;
+    if (!force && cullTimer < cullInterval) return;
     cullTimer = 0;
 
     camera.updateMatrixWorld();
@@ -1396,18 +1425,19 @@ function stepGame(dt) {
 
     updateVisibilityCulling();
 
-    if ((player.isLocked || isSitting || isHanging) && interactions && interactionTimer >= 0.055) {
+    const interactionInterval = settings.quality === 'performance' ? 0.085 : 0.055;
+    if ((player.isLocked || isSitting || isHanging) && interactions && interactionTimer >= interactionInterval) {
         interactionTimer = 0;
         interactions.update();
     }
 
-    // Keep movement/camera/rendering at the display refresh rate, but run
-    // secondary room animation at 30 Hz. This removes a large amount of CPU
-    // work without making first-person input feel delayed.
+    // Camera and player motion remain at display refresh rate. Decorative room
+    // systems use a lower fixed cadence on Performance mode to reduce CPU work.
     if (worldData) {
+        const worldHz = settings.quality === 'performance' ? 20 : settings.quality === 'balanced' ? 30 : 45;
         worldUpdateAccumulator += dt;
-        if (worldUpdateAccumulator >= 1 / 30) {
-            const worldDt = Math.min(worldUpdateAccumulator, 0.066);
+        if (worldUpdateAccumulator >= 1 / worldHz) {
+            const worldDt = Math.min(worldUpdateAccumulator, 0.075);
             worldUpdateAccumulator = 0;
             for (const u of worldData.updatables) {
                 u.update(worldDt);

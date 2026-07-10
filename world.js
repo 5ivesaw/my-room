@@ -75,7 +75,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const floorLayout = {
         bed: solveFloorPlacement('bed', -4.72, -1.72, 1.18, 1.66),
         desk: solveFloorPlacement('desk', 4.18, 3.55, 1.68, 1.38),
-        fridge: solveFloorPlacement('fridge', -5.20, 1.72, 0.54, 0.58),
+        fridge: solveFloorPlacement('fridge', 5.22, 0.35, 0.54, 0.58),
         piano: solveFloorPlacement('piano', -4.34, 4.08, 0.72, 1.52)
     };
 
@@ -1224,7 +1224,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
 
     // ============ ORANGE CAT ============
     const catGroup = new THREE.Group();
-    catGroup.position.set(-3.05, 0.96, 2.9);
+    // Sleep directly on the blanket instead of floating in front of the bed.
+    catGroup.position.set(floorLayout.bed.x + 0.34, 0.96, floorLayout.bed.z + 0.34);
 
     const catBody = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.7), catOrangeMat);
     catBody.position.y = 0.125;
@@ -1310,8 +1311,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         catHomePos.clone()
     ];
 
-    const catCamPos = new THREE.Vector3(-2.0, 1.35, 1.65);
-    const catLookAt = new THREE.Vector3(-3.05, 1.05, 2.9);
+    const catCamPos = new THREE.Vector3(floorLayout.bed.x + 1.42, 1.42, floorLayout.bed.z + 0.72);
+    const catLookAt = new THREE.Vector3(floorLayout.bed.x + 0.34, 1.13, floorLayout.bed.z + 0.34);
 
     const triggerMeow = () => {
         if (sfx) {
@@ -2120,10 +2121,31 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const pianoSeatPos = new THREE.Vector3(floorLayout.piano.x - 0.83, 0, floorLayout.piano.z);
     const pianoViewTarget = new THREE.Vector3(floorLayout.piano.x + 0.83, 1.05, floorLayout.piano.z);
     for (let km of pianoKeyMeshes) {
-        interactables.push({ mesh: km, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
+        interactables.push({
+            mesh: km,
+            action: 'sitPiano',
+            label: 'Sit at Piano',
+            pianoWorldPos: pianoSeatPos,
+            pianoLookAt: pianoViewTarget,
+            canInteract: () => !servantActive
+        });
     }
-    interactables.push({ mesh: pianoBody, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
-    interactables.push({ mesh: benchTop, action: 'sitPiano', label: 'Sit at Piano', pianoWorldPos: pianoSeatPos, pianoLookAt: pianoViewTarget });
+    interactables.push({
+        mesh: pianoBody,
+        action: 'sitPiano',
+        label: 'Sit at Piano',
+        pianoWorldPos: pianoSeatPos,
+        pianoLookAt: pianoViewTarget,
+        canInteract: () => !servantActive
+    });
+    interactables.push({
+        mesh: benchTop,
+        action: 'sitPiano',
+        get label() { return servantActive ? 'Bone Pianist Occupies Bench' : 'Sit at Piano'; },
+        pianoWorldPos: pianoSeatPos,
+        pianoLookAt: pianoViewTarget,
+        canInteract: () => !servantActive
+    });
 
     updatables.push({
         update: (dt) => {
@@ -3213,8 +3235,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         servantLegs.push({ side, thigh, shin, foot });
     }
 
-    const servantStandingPos = new THREE.Vector3(floorLayout.piano.x - 0.47, 0, floorLayout.piano.z - 1.13);
-    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.81, 0, floorLayout.piano.z);
+    const servantStandingPos = new THREE.Vector3(floorLayout.piano.x - 1.18, 0, floorLayout.piano.z - 1.30);
+    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.88, 0, floorLayout.piano.z);
     servantGroup.position.copy(servantStandingPos);
     servantGroup.rotation.y = -0.48;
 
@@ -3434,8 +3456,28 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         setPerformanceOptions: (options = {}) => {
             if (options.quality) performanceOptions.quality = options.quality;
             if (options.pcPreview) performanceOptions.pcPreview = options.pcPreview;
-            const showOptionalLights = performanceOptions.quality !== 'performance';
-            for (const light of optionalLights) light.visible = showOptionalLights;
+
+            const quality = performanceOptions.quality;
+            // Point lights are the heaviest part of this MeshStandardMaterial
+            // scene. Keep the global shader light count tightly bounded even on
+            // Quality; emissive meshes preserve the local glow appearance.
+            for (const light of optionalLights) light.visible = false;
+            roomLight.visible = quality !== 'performance';
+            chandelierGlow.visible = quality !== 'performance';
+            throneGlow.visible = quality !== 'performance';
+            streetGlow.visible = false;
+            deskLight.visible = false;
+            bedUnderglow.visible = false;
+            radioLight.visible = false;
+            interiorLight.visible = false;
+            pcRgbLight.visible = quality === 'quality';
+            monitorGlow.visible = quality === 'quality';
+
+            const textureAnisotropy = quality === 'quality' ? 4 : quality === 'balanced' ? 2 : 1;
+            for (const texture of [wallpaperTex, floorTex, ceilingTex]) {
+                texture.anisotropy = textureAnisotropy;
+                texture.needsUpdate = true;
+            }
             pcSystem.setPreviewMode(performanceOptions.pcPreview);
         },
         triggerPcBurst,

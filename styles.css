@@ -1,21 +1,43 @@
+html,
 body {
     margin: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     background-color: #020308;
     font-family: Inter, Segoe UI, system-ui, sans-serif;
     color: white;
 }
 
-canvas {
+/* The renderer deliberately uses a sub-1.0 internal pixel ratio for speed.
+   Its CSS size must stay at the full viewport size or the reduced drawing
+   buffer appears as black strips on the right and bottom. */
+#game-container {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: #020308;
+}
+
+#game-container > canvas {
+    position: absolute;
+    inset: 0;
     display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    touch-action: none;
 }
 
 #ui-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
     pointer-events: none; /* Let clicks pass through to canvas when exploring */
 }
 
@@ -1270,10 +1292,6 @@ html,
 body,
 #game-container,
 #ui-layer {
-    width: 100%;
-    height: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
     overscroll-behavior: none;
 }
 
