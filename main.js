@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=68';
+import { createWorld } from './world.js?v=69';
 import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
-import { startKingdomPresence } from './kingdom-presence.js?v=2';
+import { startKingdomPresence } from './kingdom-presence.js?v=3';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;
@@ -178,6 +178,17 @@ const reducedMotionInput = document.getElementById('reduced-motion');
 const hud = document.getElementById('hud');
 const fadeOverlay = document.getElementById('fade-overlay');
 const messageOverlay = document.getElementById('message-overlay');
+const throneStatusPlaque = document.getElementById('throne-status-plaque');
+const throneStatusValue = document.getElementById('throne-status-value');
+const throneStatusMessage = document.getElementById('throne-status-message');
+const thronePlaqueCenterWorld = new THREE.Vector3();
+const thronePlaqueLeftWorld = new THREE.Vector3();
+const thronePlaqueRightWorld = new THREE.Vector3();
+const thronePlaqueCenterClip = new THREE.Vector3();
+const thronePlaqueLeftClip = new THREE.Vector3();
+const thronePlaqueRightClip = new THREE.Vector3();
+const thronePlaqueCameraDirection = new THREE.Vector3();
+const thronePlaqueToAnchor = new THREE.Vector3();
 const pauseOverlay = document.getElementById('pause-overlay');
 const mobileControls = document.getElementById('mobile-controls');
 const mobileStick = document.getElementById('mobile-stick');
@@ -222,12 +233,70 @@ const LORD_MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function applyKingdomPresence(presence = {}) {
     const online = presence.online === true;
-    const status = String(presence.status || 'offline');
-    currentPresence = { ...presence, online, status };
+    const status = ['online', 'busy', 'sleeping', 'offline'].includes(String(presence.status))
+        ? String(presence.status)
+        : 'offline';
+    const fallbackMessage = online
+        ? 'My Lord is watching from the throne.'
+        : 'The sovereign is away from the throne.';
+    const message = String(presence.message || fallbackMessage).slice(0, 120);
+    currentPresence = { ...presence, online, status, message };
     audiencePanel?.classList.toggle('online', online);
     if (audienceStatus) audienceStatus.textContent = status;
-    if (audienceDecree) audienceDecree.textContent = presence.message || (online ? 'My Lord is watching from the throne.' : 'The bone throne keeps watch in my Lord\'s absence.');
-    worldData?.setKingPresence?.(presence);
+    if (audienceDecree) audienceDecree.textContent = message;
+    if (throneStatusValue) throneStatusValue.textContent = status.toUpperCase();
+    if (throneStatusMessage) throneStatusMessage.textContent = message;
+    if (throneStatusPlaque) throneStatusPlaque.dataset.status = status;
+    worldData?.setKingPresence?.(currentPresence);
+}
+
+function updateThroneStatusPlaque() {
+    const anchorsReady = worldData?.throneStatusAnchor && worldData?.throneStatusLeftAnchor && worldData?.throneStatusRightAnchor;
+    const blocked = !hasStarted || !anchorsReady || document.body.classList.contains('pc-open') || document.body.classList.contains('audience-open');
+    if (blocked) {
+        throneStatusPlaque?.classList.remove('visible');
+        throneStatusPlaque?.setAttribute('aria-hidden', 'true');
+        return;
+    }
+
+    worldData.throneStatusAnchor.getWorldPosition(thronePlaqueCenterWorld);
+    worldData.throneStatusLeftAnchor.getWorldPosition(thronePlaqueLeftWorld);
+    worldData.throneStatusRightAnchor.getWorldPosition(thronePlaqueRightWorld);
+    camera.getWorldDirection(thronePlaqueCameraDirection);
+    thronePlaqueToAnchor.subVectors(thronePlaqueCenterWorld, camera.getWorldPosition(cameraWorldPos));
+    if (thronePlaqueCameraDirection.dot(thronePlaqueToAnchor) <= 0) {
+        throneStatusPlaque.classList.remove('visible');
+        throneStatusPlaque.setAttribute('aria-hidden', 'true');
+        return;
+    }
+
+    thronePlaqueCenterClip.copy(thronePlaqueCenterWorld).project(camera);
+    thronePlaqueLeftClip.copy(thronePlaqueLeftWorld).project(camera);
+    thronePlaqueRightClip.copy(thronePlaqueRightWorld).project(camera);
+    const inFront = thronePlaqueCenterClip.z > -1 && thronePlaqueCenterClip.z < 1;
+    const nearViewport = Math.abs(thronePlaqueCenterClip.x) < 1.18 && Math.abs(thronePlaqueCenterClip.y) < 1.2;
+    if (!inFront || !nearViewport) {
+        throneStatusPlaque.classList.remove('visible');
+        throneStatusPlaque.setAttribute('aria-hidden', 'true');
+        return;
+    }
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const centerX = rect.left + (thronePlaqueCenterClip.x * 0.5 + 0.5) * rect.width;
+    const centerY = rect.top + (-thronePlaqueCenterClip.y * 0.5 + 0.5) * rect.height;
+    const leftX = rect.left + (thronePlaqueLeftClip.x * 0.5 + 0.5) * rect.width;
+    const rightX = rect.left + (thronePlaqueRightClip.x * 0.5 + 0.5) * rect.width;
+    const projectedWidth = Math.abs(rightX - leftX);
+    const mobile = rect.width <= 700;
+    const maxWidth = Math.max(180, mobile ? Math.min(430, rect.width - 24) : Math.min(620, rect.width - 48));
+    const minWidth = Math.min(mobile ? 250 : 340, maxWidth);
+    const readableWidth = Math.max(minWidth, Math.min(maxWidth, projectedWidth * 1.08));
+
+    throneStatusPlaque.style.left = `${centerX}px`;
+    throneStatusPlaque.style.top = `${centerY}px`;
+    throneStatusPlaque.style.setProperty('--plaque-width', `${Math.round(readableWidth)}px`);
+    throneStatusPlaque.classList.add('visible');
+    throneStatusPlaque.setAttribute('aria-hidden', 'false');
 }
 
 async function fileToAudienceAttachment(file) {
@@ -413,7 +482,7 @@ async function startRoyalMail() {
         });
 
         clearInterval(royalMailHeartbeat);
-        royalMailHeartbeat = setInterval(() => syncVisitorProfile().catch(() => {}), 30000);
+        royalMailHeartbeat = setInterval(() => syncVisitorProfile().catch(() => {}), 10000);
         clearInterval(royalMailExpiryTimer);
         royalMailExpiryTimer = setInterval(renderRoyalMail, 1000);
     } catch (error) {
@@ -1662,6 +1731,7 @@ function stepGame(dt) {
     }
 
     updateMobileControls();
+    updateThroneStatusPlaque();
     renderer.render(scene, camera);
 }
 

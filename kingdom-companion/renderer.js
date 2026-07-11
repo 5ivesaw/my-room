@@ -19,13 +19,14 @@ import {
   query,
   orderBy,
   limit,
-  onSnapshot
+  onSnapshot,
+  waitForPendingWrites
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
 const config = window.KINGDOM_FIREBASE_CONFIG || window.VEIL_FIREBASE_CONFIG;
 const $ = (id) => document.getElementById(id);
 const validConfig = config?.apiKey && config?.projectId && config?.appId && !String(config.apiKey).includes('PASTE_');
-const ONLINE_WINDOW_MS = 90_000;
+const ONLINE_WINDOW_MS = 25_000;
 const MAX_REPLY_MS = 86_400_000;
 
 const els = {
@@ -53,6 +54,9 @@ let stopUsers = null;
 let stopOutgoing = null;
 let firstAudienceSnapshot = true;
 let refreshTimer = null;
+let presenceHeartbeatTimer = null;
+let presenceAutoSyncTimer = null;
+let lastPresenceFingerprint = '';
 
 const say = (text = '') => { els.notice.textContent = text; };
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => ({
@@ -88,7 +92,7 @@ const safeMedia = (attachment) => {
 const desktopSettings = await window.kingdomDesktop.getSettings();
 els.startup.checked = Boolean(desktopSettings.startup);
 els.chatUrl.value = desktopSettings.chatUrl || '';
-els.status.value = localStorage.getItem('kingdom.status') || 'offline';
+els.status.value = localStorage.getItem('kingdom.status') || 'online';
 els.message.value = localStorage.getItem('kingdom.message') || '';
 els.contactUid.value = localStorage.getItem('kingdom.contactUid') || '';
 await window.kingdomDesktop.setStatusMode(els.status.value);
@@ -110,7 +114,10 @@ els.openChat.addEventListener('click', () => window.kingdomDesktop.openChat());
 els.status.addEventListener('change', async () => {
   await window.kingdomDesktop.setStatusMode(els.status.value);
   updatePresenceDot();
+  schedulePresenceSync(0);
 });
+els.message.addEventListener('input', () => schedulePresenceSync(120));
+els.contactUid.addEventListener('input', () => schedulePresenceSync(180));
 els.userSearch.addEventListener('input', renderOnlineUsers);
 els.copyActiveCode.addEventListener('click', copyActiveCode);
 
@@ -135,6 +142,7 @@ async function handleAuthChange(user) {
   els.ownerEmail.textContent = user?.email || 'Signed out';
   updatePresenceDot();
   stopAllListeners();
+  lastPresenceFingerprint = '';
   if (!user) {
     audienceMessages = [];
     publicUsers = [];
@@ -145,12 +153,16 @@ async function handleAuthChange(user) {
   say('Owner authenticated. Loading the court…');
   startAudienceListener();
   startUsersListener();
-  clearInterval(refreshTimer);
+  await publishPresence({ announce: false, forceHeartbeat: true })
+    .catch((error) => say(`Presence sync blocked: ${error.message}`));
+  presenceHeartbeatTimer = setInterval(() => {
+    publishPresence({ announce: false, forceHeartbeat: true }).catch(() => {});
+  }, 8_000);
   refreshTimer = setInterval(() => {
     renderThreads();
     renderOnlineUsers();
     renderConversation();
-  }, 10_000);
+  }, 2_000);
 }
 
 function stopAllListeners() {
@@ -160,6 +172,10 @@ function stopAllListeners() {
   stopAudience = stopUsers = stopOutgoing = null;
   clearInterval(refreshTimer);
   refreshTimer = null;
+  clearInterval(presenceHeartbeatTimer);
+  presenceHeartbeatTimer = null;
+  clearTimeout(presenceAutoSyncTimer);
+  presenceAutoSyncTimer = null;
 }
 
 function startAudienceListener() {
@@ -371,26 +387,58 @@ els.signIn.addEventListener('click', async () => {
 els.password.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') els.signIn.click();
 });
-els.signOut.addEventListener('click', () => auth && signOut(auth));
+els.signOut.addEventListener('click', async () => {
+  if (!auth) return;
+  await publishPresence({ statusOverride: 'offline', announce: false, forceHeartbeat: true }).catch(() => {});
+  await signOut(auth);
+});
 
-els.publish.addEventListener('click', publishPresence);
-async function publishPresence() {
-  if (!currentUser || !db) return;
-  const status = ['online','busy','sleeping','offline'].includes(els.status.value) ? els.status.value : 'offline';
-  const message = els.message.value.trim().slice(0, 120);
-  const contactUid = cleanUid(els.contactUid.value);
+els.publish.addEventListener('click', () => publishPresence({ announce: true, forceHeartbeat: true }));
+
+function selectedPresence(statusOverride = '') {
+  const selected = ['online','busy','sleeping','offline'].includes(els.status.value) ? els.status.value : 'offline';
+  const status = ['online','busy','sleeping','offline'].includes(statusOverride) ? statusOverride : selected;
+  return {
+    status,
+    message: els.message.value.trim().slice(0, 120),
+    contactUid: cleanUid(els.contactUid.value)
+  };
+}
+
+function schedulePresenceSync(delay = 120) {
+  clearTimeout(presenceAutoSyncTimer);
+  presenceAutoSyncTimer = setTimeout(() => {
+    publishPresence({ announce: false, forceHeartbeat: false }).catch(() => {});
+  }, Math.max(0, delay));
+}
+
+async function publishPresence({ statusOverride = '', announce = false, forceHeartbeat = false } = {}) {
+  if (!currentUser || !db) return false;
+  const { status, message, contactUid } = selectedPresence(statusOverride);
+  const fingerprint = `${status}|${message}|${contactUid}`;
+  if (!forceHeartbeat && fingerprint === lastPresenceFingerprint) return true;
+
   try {
     await window.kingdomDesktop.setStatusMode(status);
-    localStorage.setItem('kingdom.status', status);
-    localStorage.setItem('kingdom.message', message);
-    localStorage.setItem('kingdom.contactUid', contactUid);
+    if (!statusOverride) {
+      localStorage.setItem('kingdom.status', status);
+      localStorage.setItem('kingdom.message', message);
+      localStorage.setItem('kingdom.contactUid', contactUid);
+    }
     await setDoc(doc(db, 'kingdom', 'presence'), {
-      status, message, contactUid, heartbeatAt: serverTimestamp(), heartbeatMs: Date.now()
+      status,
+      message: status === 'offline' ? 'The sovereign is away from the throne.' : message,
+      contactUid,
+      heartbeatAt: serverTimestamp(),
+      heartbeatMs: Date.now()
     }, { merge: true });
+    lastPresenceFingerprint = fingerprint;
     updatePresenceDot();
-    say(`Throne status published: ${status}.`);
+    if (announce) say(`Throne status synchronized: ${status}.`);
+    return true;
   } catch (error) {
-    say(`Publish blocked: ${error.message}`);
+    if (announce) say(`Presence sync blocked: ${error.message}`);
+    throw error;
   }
 }
 
@@ -425,12 +473,13 @@ els.replyForm.addEventListener('submit', async (event) => {
   }
 });
 
-setInterval(() => {
-  if (!currentUser || !db) return;
-  const status = ['online','busy','sleeping','offline'].includes(els.status.value) ? els.status.value : 'offline';
-  const message = els.message.value.trim().slice(0, 120);
-  const contactUid = cleanUid(els.contactUid.value);
-  setDoc(doc(db, 'kingdom', 'presence'), {
-    status, message, contactUid, heartbeatAt: serverTimestamp(), heartbeatMs: Date.now()
-  }, { merge: true }).catch(() => {});
-}, 60_000);
+window.kingdomDesktop.onPrepareOffline(async () => {
+  try {
+    await publishPresence({ statusOverride: 'offline', announce: false, forceHeartbeat: true });
+    if (db) await waitForPendingWrites(db);
+  } catch {
+    // The eight-second heartbeat and the website stale timer remain the fallback.
+  } finally {
+    window.kingdomDesktop.offlineReady();
+  }
+});

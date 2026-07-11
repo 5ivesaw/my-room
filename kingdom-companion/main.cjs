@@ -7,6 +7,9 @@ let chatWindow = null;
 let tray = null;
 let settings = { chatUrl: '', startAtLogin: true };
 let currentStatus = 'offline';
+let quitRequested = false;
+let allowQuit = false;
+let quitFallbackTimer = null;
 
 function settingsPath() { return path.join(app.getPath('userData'), 'settings.json'); }
 function loadSettings() {
@@ -24,6 +27,26 @@ function applyStartup(enabled) {
 function trustedChatOrigin() {
   try { return settings.chatUrl ? new URL(settings.chatUrl).origin : ''; } catch { return ''; }
 }
+function finishQuit() {
+  if (allowQuit) return;
+  allowQuit = true;
+  clearTimeout(quitFallbackTimer);
+  quitFallbackTimer = null;
+  app.quit();
+}
+
+function requestGracefulQuit() {
+  if (quitRequested) return;
+  quitRequested = true;
+  currentStatus = 'offline';
+  if (dashboard && !dashboard.isDestroyed() && !dashboard.webContents.isDestroyed()) {
+    dashboard.webContents.send('prepare-offline');
+    quitFallbackTimer = setTimeout(finishQuit, 1400);
+  } else {
+    finishQuit();
+  }
+}
+
 function createDashboard() {
   dashboard = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 620, show: false,
@@ -32,7 +55,15 @@ function createDashboard() {
   });
   dashboard.removeMenu();
   dashboard.loadFile('index.html');
-  dashboard.on('close', (event) => { if (!app.isQuitting) { event.preventDefault(); dashboard.hide(); } });
+  dashboard.on('minimize', (event) => {
+    event.preventDefault();
+    dashboard.hide();
+  });
+  dashboard.on('close', (event) => {
+    if (allowQuit) return;
+    event.preventDefault();
+    requestGracefulQuit();
+  });
   dashboard.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -57,7 +88,7 @@ function openChat(show = true) {
       return origin === trustedChatOrigin() && (permission === 'media' || (permission === 'notifications' && currentStatus === 'online'));
     });
     chatWindow.loadURL(settings.chatUrl);
-    chatWindow.on('close', (event) => { if (!app.isQuitting) { event.preventDefault(); chatWindow.hide(); } });
+    chatWindow.on('close', (event) => { if (!allowQuit) { event.preventDefault(); chatWindow.hide(); } });
     chatWindow.webContents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith(trustedChatOrigin())) return { action: 'allow' };
       if (/^https:\/\//i.test(url)) shell.openExternal(url);
@@ -75,7 +106,7 @@ function createTray() {
     { label: 'Royal inbox & presence', click: () => { dashboard.show(); dashboard.focus(); } },
     { label: 'Open Veil Chat', click: () => openChat(true) },
     { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
+    { label: 'Quit & go offline', click: requestGracefulQuit }
   ]));
   tray.on('double-click', () => { dashboard.show(); dashboard.focus(); });
 }
@@ -93,8 +124,14 @@ app.whenReady().then(() => {
   if (!process.argv.includes('--hidden')) dashboard.show();
 });
 
-app.on('window-all-closed', (event) => event.preventDefault());
-app.on('before-quit', () => { app.isQuitting = true; });
+app.on('window-all-closed', () => {});
+app.on('before-quit', (event) => {
+  if (allowQuit) return;
+  event.preventDefault();
+  requestGracefulQuit();
+});
+
+ipcMain.on('offline-ready', finishQuit);
 
 ipcMain.handle('get-settings', () => ({ ...settings, startup: app.getLoginItemSettings().openAtLogin }));
 ipcMain.handle('set-startup', (_event, enabled) => { applyStartup(enabled); return settings.startAtLogin; });

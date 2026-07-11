@@ -2150,3 +2150,103 @@ button:active,
         border-radius: 14px;
     }
 }
+
+
+/* Native-resolution DOM plaque projected onto the throne sign.
+   Keeping status text out of the low-resolution WebGL buffer makes it readable
+   even while adaptive rendering lowers the 3D scene resolution. */
+.throne-status-plaque {
+    --plaque-width: 420px;
+    position: absolute;
+    left: 50%;
+    top: 18%;
+    z-index: 35;
+    width: var(--plaque-width);
+    box-sizing: border-box;
+    padding: calc(var(--plaque-width) * 0.035) calc(var(--plaque-width) * 0.055);
+    border: max(2px, calc(var(--plaque-width) * 0.007)) solid #b8aa90;
+    border-radius: calc(var(--plaque-width) * 0.018);
+    background:
+        linear-gradient(180deg, rgba(24, 10, 13, 0.97), rgba(5, 2, 5, 0.98)),
+        #070205;
+    box-shadow:
+        0 0 0 2px rgba(0, 0, 0, 0.82),
+        0 12px 30px rgba(0, 0, 0, 0.72),
+        inset 0 0 24px rgba(117, 11, 35, 0.16);
+    color: #fff1d2;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+    transition: opacity 90ms linear;
+    contain: layout style paint;
+}
+
+.throne-status-plaque.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.throne-status-plaque[data-status="online"] {
+    border-color: #ff3155;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.82), 0 0 28px rgba(255,49,85,.28), inset 0 0 24px rgba(255,49,85,.12);
+}
+
+.throne-status-plaque[data-status="busy"] { border-color: #ff8a32; }
+.throne-status-plaque[data-status="sleeping"] { border-color: #8d5fc7; }
+
+.throne-status-title {
+    display: block;
+    margin-bottom: calc(var(--plaque-width) * 0.008);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: calc(var(--plaque-width) * 0.058);
+    font-weight: 900;
+    letter-spacing: 0.13em;
+    line-height: 1;
+    text-shadow: 0 2px 0 #000, 0 0 8px rgba(255,241,210,.18);
+}
+
+#throne-status-value {
+    display: block;
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: calc(var(--plaque-width) * 0.085);
+    font-weight: 1000;
+    letter-spacing: 0.16em;
+    line-height: 1.05;
+    color: #d8c7a8;
+    text-shadow: 0 3px 0 #000;
+}
+
+.throne-status-plaque[data-status="online"] #throne-status-value { color: #ff4162; }
+.throne-status-plaque[data-status="busy"] #throne-status-value { color: #ff9b4f; }
+.throne-status-plaque[data-status="sleeping"] #throne-status-value { color: #c69aff; }
+
+#throne-status-message {
+    margin: calc(var(--plaque-width) * 0.018) 0 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: calc(var(--plaque-width) * 0.043);
+    font-weight: 700;
+    letter-spacing: 0.018em;
+    line-height: 1.18;
+    text-transform: none;
+    color: #efe4cf;
+    text-wrap: balance;
+    text-shadow: 0 2px 0 #000;
+}
+
+body.pc-open .throne-status-plaque,
+body.audience-open .throne-status-plaque {
+    display: none;
+}
+
+@media (max-width: 700px) {
+    .throne-status-plaque {
+        border-radius: 7px;
+        padding-inline: calc(var(--plaque-width) * 0.045);
+    }
+    .throne-status-title { letter-spacing: 0.08em; }
+    #throne-status-value { letter-spacing: 0.11em; }
+}

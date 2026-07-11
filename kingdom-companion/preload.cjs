@@ -6,5 +6,10 @@ contextBridge.exposeInMainWorld('kingdomDesktop', Object.freeze({
   setChatUrl: (url) => ipcRenderer.invoke('set-chat-url', String(url || '')),
   openChat: () => ipcRenderer.invoke('open-chat'),
   setStatusMode: (status) => ipcRenderer.invoke('set-status-mode', String(status || 'offline')),
-  notifyAudience: (preview) => ipcRenderer.invoke('notify-audience', String(preview || ''))
+  notifyAudience: (preview) => ipcRenderer.invoke('notify-audience', String(preview || '')),
+  onPrepareOffline: (callback) => {
+    if (typeof callback !== 'function') return;
+    ipcRenderer.on('prepare-offline', () => callback());
+  },
+  offlineReady: () => ipcRenderer.send('offline-ready')
 }));

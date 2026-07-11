@@ -2,16 +2,23 @@ import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12
 import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
 const VALID_STATUSES = new Set(['online', 'busy', 'sleeping', 'offline']);
-const STALE_AFTER_MS = 150000;
+// The desktop companion refreshes every eight seconds. A frozen/crashed process
+// therefore becomes visibly offline quickly even when it cannot publish a final
+// Firestore write during shutdown.
+const STALE_AFTER_MS = 20_000;
+const RECHECK_MS = 1_000;
 
 function normalizePresence(data = {}) {
     const heartbeat = data.heartbeatAt?.toMillis?.() || Number(data.heartbeatMs) || 0;
     const stale = !heartbeat || Date.now() - heartbeat > STALE_AFTER_MS;
-    const status = VALID_STATUSES.has(data.status) ? data.status : 'offline';
+    const requestedStatus = VALID_STATUSES.has(data.status) ? data.status : 'offline';
+    const status = stale ? 'offline' : requestedStatus;
     return {
-        status: stale ? 'offline' : status,
+        status,
         online: !stale && status !== 'offline',
-        message: stale ? 'The sovereign is away from the throne.' : String(data.message || '').slice(0, 120),
+        message: stale
+            ? 'The sovereign is away from the throne.'
+            : String(data.message || '').slice(0, 120),
         contactUid: String(data.contactUid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 128),
         updatedAt: heartbeat
     };
@@ -23,21 +30,45 @@ export function startKingdomPresence(onChange) {
         onChange?.(normalizePresence());
         return () => {};
     }
+
+    let cachedData = {};
+    let lastSignature = '';
+    let unsubscribe = () => {};
+
+    const emit = () => {
+        const presence = normalizePresence(cachedData);
+        const signature = `${presence.status}|${presence.online}|${presence.message}|${presence.contactUid}|${presence.updatedAt}`;
+        if (signature === lastSignature) return;
+        lastSignature = signature;
+        window.kingdomPresence = presence;
+        window.dispatchEvent(new CustomEvent('kingdom-presence', { detail: presence }));
+        onChange?.(presence);
+    };
+
     try {
         const app = getApps()[0] || initializeApp(config);
         const db = getFirestore(app);
-        return onSnapshot(doc(db, 'kingdom', 'presence'), (snapshot) => {
-            const presence = normalizePresence(snapshot.exists() ? snapshot.data() : {});
-            window.kingdomPresence = presence;
-            window.dispatchEvent(new CustomEvent('kingdom-presence', { detail: presence }));
-            onChange?.(presence);
+        unsubscribe = onSnapshot(doc(db, 'kingdom', 'presence'), (snapshot) => {
+            cachedData = snapshot.exists() ? snapshot.data() : {};
+            emit();
         }, (error) => {
             console.warn('Kingdom presence unavailable:', error.message);
-            onChange?.(normalizePresence());
+            cachedData = {};
+            emit();
         });
     } catch (error) {
         console.warn('Kingdom presence failed to initialize:', error.message);
-        onChange?.(normalizePresence());
-        return () => {};
+        cachedData = {};
+        emit();
     }
+
+    // Firestore does not emit a new snapshot merely because an old heartbeat has
+    // become stale, so re-evaluate the cached timestamp locally once per second.
+    const staleTimer = window.setInterval(emit, RECHECK_MS);
+    emit();
+
+    return () => {
+        window.clearInterval(staleTimer);
+        unsubscribe?.();
+    };
 }

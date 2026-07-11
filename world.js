@@ -76,7 +76,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         bed: solveFloorPlacement('bed', -4.72, -1.72, 1.18, 1.66),
         desk: solveFloorPlacement('desk', 4.18, 3.55, 1.68, 1.38),
         fridge: solveFloorPlacement('fridge', 5.22, 0.35, 0.54, 0.58),
-        piano: solveFloorPlacement('piano', -4.34, 4.08, 0.72, 1.52)
+        piano: solveFloorPlacement('piano', -4.34, 4.08, 1.55, 1.52)
     };
 
     function trackCullable(object, radius = 1.5) {
@@ -1519,7 +1519,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     // ============ FULL DIGITAL PIANO ============
     const pianoGroup = new THREE.Group();
     pianoGroup.position.set(floorLayout.piano.x, 0, floorLayout.piano.z);
-    pianoGroup.rotation.y = -Math.PI / 2;
+    pianoGroup.rotation.y = Math.PI / 2;
     pianoGroup.scale.set(1.0, 1.0, 1.0);
 
     const pianoGlossMat = new THREE.MeshStandardMaterial({ color: 0x080706, roughness: 0.18, metalness: 0.08 });
@@ -2156,8 +2156,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     }
 
     // Add interaction to sit
-    const pianoSeatPos = new THREE.Vector3(floorLayout.piano.x - 0.83, 0, floorLayout.piano.z);
-    const pianoViewTarget = new THREE.Vector3(floorLayout.piano.x + 0.83, 1.05, floorLayout.piano.z);
+    const pianoSeatPos = new THREE.Vector3(floorLayout.piano.x + 1.08, 0, floorLayout.piano.z);
+    const pianoViewTarget = new THREE.Vector3(floorLayout.piano.x - 0.18, 1.05, floorLayout.piano.z);
     for (let km of pianoKeyMeshes) {
         interactables.push({
             mesh: km,
@@ -3254,11 +3254,22 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     plaqueTexture.magFilter = THREE.LinearFilter;
     plaqueTexture.generateMipmaps = true;
     const plaque = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.55, 0.64),
+        new THREE.PlaneGeometry(3.7, 1.02),
         new THREE.MeshBasicMaterial({ map: plaqueTexture, toneMapped: false })
     );
-    plaque.position.set(0, 4.66, 0.36);
+    plaque.position.set(0, 4.72, 0.36);
     throneGroup.add(plaque);
+
+    // Three world-space markers let main.js project a native-resolution HTML
+    // plaque exactly over this sign. The readable text therefore never passes
+    // through the low-resolution WebGL drawing buffer.
+    const throneStatusAnchor = new THREE.Object3D();
+    const throneStatusLeftAnchor = new THREE.Object3D();
+    const throneStatusRightAnchor = new THREE.Object3D();
+    throneStatusAnchor.position.set(0, 4.72, 0.39);
+    throneStatusLeftAnchor.position.set(-1.85, 4.72, 0.39);
+    throneStatusRightAnchor.position.set(1.85, 4.72, 0.39);
+    throneGroup.add(throneStatusAnchor, throneStatusLeftAnchor, throneStatusRightAnchor);
 
     // Freeze the entire static throne hierarchy. Visibility, material values and
     // plaque textures can still change without recalculating hundreds of matrices.
@@ -3374,10 +3385,15 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         servantLegs.push({ side, thigh, shin, foot });
     }
 
-    const servantStandingPos = new THREE.Vector3(floorLayout.piano.x - 1.18, 0, floorLayout.piano.z - 1.30);
-    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x - 0.97, 0, floorLayout.piano.z);
+    // With the piano turned toward the room, +X is the direction its keys face.
+    // The servant idles farther into the hall, facing that same direction. Only
+    // after interaction does it walk around the bench, turn toward the keys,
+    // sit down, and begin the real recording.
+    const servantStandingPos = new THREE.Vector3(floorLayout.piano.x + 2.18, 0, floorLayout.piano.z - 1.12);
+    const servantApproachPos = new THREE.Vector3(floorLayout.piano.x + 1.76, 0, floorLayout.piano.z);
+    const servantPianoPos = new THREE.Vector3(floorLayout.piano.x + 1.03, 0, floorLayout.piano.z);
     servantGroup.position.copy(servantStandingPos);
-    servantGroup.rotation.y = -0.48;
+    servantGroup.rotation.y = Math.PI / 2;
 
     const servantTracks = [
         {
@@ -3400,7 +3416,11 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         }
     ];
     let servantActive = false;
+    let servantMode = 'idle'; // idle -> approaching -> seating -> playing -> rising -> returning
+    let servantRouteIndex = 0;
+    let servantSeatBlend = 0;
     let servantTrackIndex = 0;
+    let servantLoadedTrackIndex = -1;
     let servantAudio = null;
     let servantLastBeat = -1;
     const servantLeftTarget = new THREE.Vector3(-0.26, 1.0, -0.52);
@@ -3416,6 +3436,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     const rightElbow = new THREE.Vector3();
     const servantLeftPoseTarget = new THREE.Vector3();
     const servantRightPoseTarget = new THREE.Vector3();
+    const servantWalkDirection = new THREE.Vector3();
     let servantLeftPress = 0;
     let servantRightPress = 0;
     let servantAnimationTime = 0;
@@ -3423,43 +3444,83 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     function stopServantAudio(reset = false) {
         if (!servantAudio) return;
         servantAudio.pause();
+        servantAudio.volume = 0;
         if (reset) servantAudio.currentTime = 0;
     }
 
-    function startServantTrack(index = servantTrackIndex) {
+    function createServantAudio(index) {
         servantTrackIndex = (index + servantTracks.length) % servantTracks.length;
         const track = servantTracks[servantTrackIndex];
         stopServantAudio(true);
         servantAudio = new Audio(track.url);
+        servantLoadedTrackIndex = servantTrackIndex;
         servantAudio.preload = 'auto';
-        servantAudio.volume = 0.62;
+        servantAudio.volume = 0;
         servantAudio.addEventListener('ended', () => {
-            if (!servantActive) return;
-            startServantTrack(servantTrackIndex + 1);
+            if (servantMode !== 'playing') return;
+            servantTrackIndex = (servantTrackIndex + 1) % servantTracks.length;
+            beginServantPerformance(servantTrackIndex);
         }, { once: true });
+        return servantAudio;
+    }
+
+    // Prime the media element during the actual click. It remains muted while
+    // the skeleton walks, avoiding browser autoplay blocking when it sits later.
+    function primeServantTrack(index = servantTrackIndex) {
+        const audio = createServantAudio(index);
+        const result = audio.play();
+        if (result?.then) {
+            result.then(() => {
+                if (servantMode === 'approaching' || servantMode === 'seating') {
+                    audio.volume = 0;
+                }
+            }).catch(() => {});
+        }
+    }
+
+    function beginServantPerformance(index = servantTrackIndex) {
+        const normalizedIndex = (index + servantTracks.length) % servantTracks.length;
+        if (!servantAudio || servantLoadedTrackIndex !== normalizedIndex) createServantAudio(normalizedIndex);
+        servantTrackIndex = normalizedIndex;
+        servantAudio.currentTime = 0;
+        servantAudio.volume = 0.62;
         servantLastBeat = -1;
         const result = servantAudio.play();
         if (result?.catch) {
-            result.catch(() => showMessage('Click the skeleton again to allow the real piano recording.'));
+            result.catch(() => showMessage('Interact with the skeleton once more to allow the piano recording.'));
         }
-        showMessage(`The bone pianist performs ${track.title}.`);
+        showMessage(`The bone pianist performs ${servantTracks[servantTrackIndex].title}.`);
+    }
+
+    function setServantMode(nextMode) {
+        servantMode = nextMode;
+        servantActive = servantMode !== 'idle';
     }
 
     function toggleServant() {
-        servantActive = !servantActive;
-        servantLastBeat = -1;
-        if (servantActive) {
-            startServantTrack(servantTrackIndex);
-        } else {
-            stopServantAudio(false);
-            showMessage('The bone pianist rises and waits beside the piano.');
+        if (servantMode === 'idle' || servantMode === 'returning') {
+            setServantMode('approaching');
+            servantRouteIndex = 0;
+            servantLastBeat = -1;
+            primeServantTrack(servantTrackIndex);
+            showMessage('The silent skeleton turns and walks toward the piano.');
+            return;
         }
+
+        stopServantAudio(false);
+        setServantMode(servantSeatBlend > 0.08 ? 'rising' : 'returning');
+        servantRouteIndex = 0;
+        showMessage('The bone pianist leaves the bench and returns to his post.');
     }
 
     interactables.push({
         mesh: servantSkull.children[0],
         action: toggleServant,
-        get label() { return servantActive ? 'Dismiss Bone Pianist' : 'Command Bone Pianist to Play'; }
+        get label() {
+            if (servantMode === 'idle') return 'Disturb the Silent Skeleton';
+            if (servantMode === 'playing') return 'Dismiss the Bone Pianist';
+            return 'The Skeleton is Moving';
+        }
     });
 
     function aimServantHandAtKey(key, target) {
@@ -3472,47 +3533,107 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         target.z += 0.015;
     }
 
+    function turnServantToward(targetYaw, dt, speed = 5.5) {
+        let yawDiff = targetYaw - servantGroup.rotation.y;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        servantGroup.rotation.y += yawDiff * Math.min(1, dt * speed);
+        return Math.abs(yawDiff);
+    }
+
+    function walkServantToward(target, dt, speed = 1.42) {
+        servantWalkDirection.subVectors(target, servantGroup.position);
+        servantWalkDirection.y = 0;
+        const distance = servantWalkDirection.length();
+        if (distance <= 0.035) {
+            servantGroup.position.x = target.x;
+            servantGroup.position.z = target.z;
+            return true;
+        }
+        servantWalkDirection.multiplyScalar(1 / distance);
+        const step = Math.min(distance, speed * dt);
+        servantGroup.position.addScaledVector(servantWalkDirection, step);
+        turnServantToward(Math.atan2(servantWalkDirection.x, servantWalkDirection.z), dt, 8);
+        return distance <= step + 0.04;
+    }
+
     updatables.push({
         update: (dt) => {
             servantAnimationTime += dt;
 
-            const targetPos = servantActive ? servantPianoPos : servantStandingPos;
-            servantGroup.position.lerp(targetPos, Math.min(1, dt * 4.2));
-            const targetYaw = servantActive ? Math.PI / 2 : -0.48;
-            let yawDiff = targetYaw - servantGroup.rotation.y;
-            while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-            while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-            servantGroup.rotation.y += yawDiff * Math.min(1, dt * 4.2);
+            if (servantMode === 'approaching') {
+                const route = [servantApproachPos, servantPianoPos];
+                if (walkServantToward(route[servantRouteIndex], dt)) {
+                    servantRouteIndex += 1;
+                    if (servantRouteIndex >= route.length) {
+                        setServantMode('seating');
+                        servantRouteIndex = 0;
+                    }
+                }
+            } else if (servantMode === 'seating') {
+                servantGroup.position.lerp(servantPianoPos, Math.min(1, dt * 8));
+                const yawRemaining = turnServantToward(-Math.PI / 2, dt, 7);
+                if (servantSeatBlend > 0.965 && yawRemaining < 0.035) {
+                    setServantMode('playing');
+                    beginServantPerformance(servantTrackIndex);
+                }
+            } else if (servantMode === 'playing') {
+                servantGroup.position.lerp(servantPianoPos, Math.min(1, dt * 10));
+                turnServantToward(-Math.PI / 2, dt, 8);
+            } else if (servantMode === 'rising') {
+                turnServantToward(-Math.PI / 2, dt, 7);
+                if (servantSeatBlend < 0.035) {
+                    setServantMode('returning');
+                    servantRouteIndex = 0;
+                }
+            } else if (servantMode === 'returning') {
+                const route = [servantApproachPos, servantStandingPos];
+                if (walkServantToward(route[servantRouteIndex], dt)) {
+                    servantRouteIndex += 1;
+                    if (servantRouteIndex >= route.length) {
+                        servantGroup.position.copy(servantStandingPos);
+                        setServantMode('idle');
+                        servantRouteIndex = 0;
+                    }
+                }
+            } else {
+                servantGroup.position.lerp(servantStandingPos, Math.min(1, dt * 8));
+                turnServantToward(Math.PI / 2, dt, 6);
+            }
 
-            servantSkull.position.y += ((servantActive ? 1.48 : 1.56) - servantSkull.position.y) * Math.min(1, dt * 6);
-            servantJaw.position.y += ((servantActive ? 1.28 : 1.36) - servantJaw.position.y) * Math.min(1, dt * 6);
-            servantSkull.rotation.y = servantActive ? 0 : Math.sin(servantAnimationTime * 1.2) * 0.16;
+            const seatedTarget = servantMode === 'seating' || servantMode === 'playing' ? 1 : 0;
+            servantSeatBlend += (seatedTarget - servantSeatBlend) * Math.min(1, dt * 4.8);
+            servantActive = servantMode !== 'idle';
 
-            // Pose the legs without allocating temporary vectors every frame.
+            servantSkull.position.y += ((1.56 - servantSeatBlend * 0.08) - servantSkull.position.y) * Math.min(1, dt * 7);
+            servantJaw.position.y += ((1.36 - servantSeatBlend * 0.08) - servantJaw.position.y) * Math.min(1, dt * 7);
+            servantSkull.rotation.y = servantMode === 'idle' ? Math.sin(servantAnimationTime * 1.2) * 0.12 : 0;
+
+            // Interpolate the full leg pose between standing and properly seated
+            // coordinates, keeping every segment in front of the bench cushion.
             for (let i = 0; i < servantLegs.length; i++) {
                 const leg = servantLegs[i];
                 const side = leg.side;
                 const hip = servantHips[i].set(side * 0.1, 0.73, 0);
-                const knee = servantKnees[i];
-                const ankle = servantAnkles[i];
-                if (servantActive) {
-                    // Hip stays over the cushion; knees and ankles project beyond
-                    // the front edge so no leg segment passes through the bench.
-                    knee.set(side * 0.16, 0.64, 0.52);
-                    ankle.set(side * 0.18, 0.09, 0.79);
-                } else {
-                    knee.set(side * 0.11, 0.42, 0);
-                    ankle.set(side * 0.11, 0.08, 0);
-                }
+                const knee = servantKnees[i].set(
+                    side * (0.11 + 0.05 * servantSeatBlend),
+                    0.42 + 0.22 * servantSeatBlend,
+                    0.52 * servantSeatBlend
+                );
+                const ankle = servantAnkles[i].set(
+                    side * (0.11 + 0.07 * servantSeatBlend),
+                    0.08 + 0.01 * servantSeatBlend,
+                    0.79 * servantSeatBlend
+                );
                 placeBone(leg.thigh, hip, knee);
                 placeBone(leg.shin, knee, ankle);
                 leg.foot.position.copy(ankle);
                 leg.foot.position.y -= 0.03;
-                leg.foot.position.z += servantActive ? 0.11 : 0.08;
-                leg.foot.rotation.x = servantActive ? -0.2 : 0;
+                leg.foot.position.z += 0.08 + 0.03 * servantSeatBlend;
+                leg.foot.rotation.x = -0.2 * servantSeatBlend;
             }
 
-            if (servantActive && servantAudio && !servantAudio.paused) {
+            if (servantMode === 'playing' && servantAudio && !servantAudio.paused) {
                 const track = servantTracks[servantTrackIndex];
                 const beatIndex = Math.floor(servantAudio.currentTime / track.beat);
                 if (beatIndex !== servantLastBeat) {
@@ -3534,8 +3655,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
                     }
                 }
             } else {
-                servantLeftTarget.set(-0.24, 0.9, servantActive ? 0.52 : 0.06);
-                servantRightTarget.set(0.24, 0.9, servantActive ? 0.52 : 0.06);
+                const restingZ = servantSeatBlend > 0.2 ? 0.52 : 0.06;
+                servantLeftTarget.set(-0.24, 0.9, restingZ);
+                servantRightTarget.set(0.24, 0.9, restingZ);
             }
 
             servantLeftPress = Math.max(0, servantLeftPress - dt * 7.5);
@@ -3549,8 +3671,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             const rightHand = servantHands[1];
             leftHand.position.lerp(servantLeftPoseTarget, Math.min(1, dt * 15));
             rightHand.position.lerp(servantRightPoseTarget, Math.min(1, dt * 15));
-            leftHand.rotation.x = servantActive ? -0.45 : 0;
-            rightHand.rotation.x = servantActive ? -0.45 : 0;
+            leftHand.rotation.x = -0.45 * servantSeatBlend;
+            rightHand.rotation.x = -0.45 * servantSeatBlend;
 
             leftElbow.copy(leftShoulder).lerp(leftHand.position, 0.52);
             leftElbow.x -= 0.08;
@@ -3574,7 +3696,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         { id: 'bed', minX: floorLayout.bed.x - 1.16, maxX: floorLayout.bed.x + 1.16, minZ: floorLayout.bed.z - 1.58, maxZ: floorLayout.bed.z + 1.58 },
         { id: 'desk', minX: floorLayout.desk.x - 1.62, maxX: floorLayout.desk.x + 1.62, minZ: floorLayout.desk.z - 0.84, maxZ: floorLayout.desk.z + 0.54 },
         { id: 'fridge', minX: floorLayout.fridge.x - 0.52, maxX: floorLayout.fridge.x + 0.52, minZ: floorLayout.fridge.z - 0.52, maxZ: floorLayout.fridge.z + 0.52 },
-        { id: 'piano', minX: floorLayout.piano.x - 0.62, maxX: floorLayout.piano.x + 0.62, minZ: floorLayout.piano.z - 1.48, maxZ: floorLayout.piano.z + 1.48 },
+        { id: 'piano', minX: floorLayout.piano.x - 0.62, maxX: floorLayout.piano.x + 1.42, minZ: floorLayout.piano.z - 1.48, maxZ: floorLayout.piano.z + 1.48 },
         ...columnPositions.map(([x, z], index) => ({
             id: `column-${index + 1}`,
             minX: x - 0.31,
@@ -3651,6 +3773,9 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
         triggerPianoScare,
         pianoKeyMap,
         pianoGroup,
+        throneStatusAnchor,
+        throneStatusLeftAnchor,
+        throneStatusRightAnchor,
         fridgeGroup,
         getDebugState: () => ({
             catState,
@@ -3661,7 +3786,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
             isBookAutoPlaying,
             pianoKeyCount: pianoKeyDefs.length,
             pianoKeyLabels: pianoKeyDefs.map((key) => key.label).join(' '),
-            roomDetailVersion: 14,
+            roomDetailVersion: 15,
             kingdom: {
                 status: kingPresence.status,
                 online: kingPresence.online,
