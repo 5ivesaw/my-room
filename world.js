@@ -632,7 +632,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     // On the gaming desk beside the PC tower, not beside the bed.
     // Fridge top is around y=1.40, so the radio sits above it without clipping.
     radioGroup.position.set(floorLayout.fridge.x, 1.56, floorLayout.fridge.z);
-    radioGroup.rotation.y = 0;
+    radioGroup.rotation.y = Math.PI / 2; // Face the controls into the hall
     const radioBodyMat = new THREE.MeshStandardMaterial({ color: 0x151a24, roughness: 0.42, metalness: 0.12 });
     const radioFaceMat = new THREE.MeshStandardMaterial({ color: 0x253044, roughness: 0.34, metalness: 0.18 });
     const radioGlowMat = new THREE.MeshBasicMaterial({ color: 0x36d6ff });
@@ -2277,7 +2277,7 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     // ============ MINI FRIDGE ============
     const fridgeGroup = new THREE.Group();
     fridgeGroup.position.set(floorLayout.fridge.x, 0, floorLayout.fridge.z);
-    fridgeGroup.rotation.y = Math.PI / 2; // Face into the hall
+    fridgeGroup.rotation.y = -Math.PI / 2; // Door faces into the hall, away from the wall
 
     const fridgeMat = new THREE.MeshStandardMaterial({ color: 0xe7e9ec, roughness: 0.28, metalness: 0.08 });
     const fridgeTrimMat = new THREE.MeshStandardMaterial({ color: 0x252a30, roughness: 0.45 });
@@ -2455,8 +2455,8 @@ export function createWorld(scene, showMessage, audioCtx, sfx) {
     interactables.push({ mesh: fridgeBody, action: () => fridgeInteractable.action(), get label() { return fridgeInteractable.label; } });
 
     // Cinematic targets for fridge items
-    const fridgeCamPos = new THREE.Vector3(floorLayout.fridge.x + 1.03, 1.3, floorLayout.fridge.z);
-    const fridgeLookAt = new THREE.Vector3(floorLayout.fridge.x - 0.03, 1.3, floorLayout.fridge.z);
+    const fridgeCamPos = new THREE.Vector3(floorLayout.fridge.x - 1.15, 1.3, floorLayout.fridge.z);
+    const fridgeLookAt = new THREE.Vector3(floorLayout.fridge.x - 0.05, 1.3, floorLayout.fridge.z);
 
     const grabItemAction = (item) => {
         if (!fridgeOpen || !item.available) return;

@@ -26,17 +26,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: kingdom-companion/package-lock.json
+          package-manager-cache: false
+
+      - name: Verify dependency lockfile
+        shell: pwsh
+        run: |
+          if (!(Test-Path package-lock.json)) { throw "kingdom-companion/package-lock.json is missing from the repository." }
 
       - name: Install exact dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Build maximally-compressed Windows executables
         run: npm run build:win
@@ -44,7 +48,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload installer only
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Kingdom-Companion-Installer
           path: kingdom-companion/dist/Kingdom-Companion-Setup-*.exe
@@ -53,7 +57,7 @@ jobs:
           retention-days: 30
 
       - name: Upload portable app only
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Kingdom-Companion-Portable
           path: kingdom-companion/dist/Kingdom-Companion-Portable-*.exe

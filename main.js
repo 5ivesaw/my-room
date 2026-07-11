@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createWorld } from './world.js?v=69';
+import { createWorld } from './world.js?v=70';
 import { Player } from './player.js?v=65';
 import { InteractionSystem } from './interactions.js?v=53';
 import { sounds } from './sounds.js?v=49';
-import { startKingdomPresence } from './kingdom-presence.js?v=3';
+import { startKingdomPresence } from './kingdom-presence.js?v=4';
 
 const SETTINGS_KEY = 'my-room.settings.v1';
 const LOCKED_FOV = 72;

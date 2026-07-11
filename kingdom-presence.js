@@ -2,14 +2,17 @@ import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12
 import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 
 const VALID_STATUSES = new Set(['online', 'busy', 'sleeping', 'offline']);
-// The desktop companion refreshes every eight seconds. A frozen/crashed process
-// therefore becomes visibly offline quickly even when it cannot publish a final
-// Firestore write during shutdown.
-const STALE_AFTER_MS = 20_000;
+// The desktop companion refreshes every five seconds from Electron's main
+// process. Explicit status changes arrive immediately; this timeout only handles
+// crashes, forced termination, lost power, or network failure.
+const STALE_AFTER_MS = 25_000;
 const RECHECK_MS = 1_000;
 
 function normalizePresence(data = {}) {
-    const heartbeat = data.heartbeatAt?.toMillis?.() || Number(data.heartbeatMs) || 0;
+    const heartbeat = Math.max(
+        data.heartbeatAt?.toMillis?.() || 0,
+        Number(data.heartbeatMs) || 0
+    );
     const stale = !heartbeat || Date.now() - heartbeat > STALE_AFTER_MS;
     const requestedStatus = VALID_STATUSES.has(data.status) ? data.status : 'offline';
     const status = stale ? 'offline' : requestedStatus;

@@ -46,6 +46,7 @@
           <div class="presence-grid">
             <label>Status
               <select id="status">
+                <option value="auto">Automatic — online while app runs</option>
                 <option value="online">Online</option>
                 <option value="busy">Busy</option>
                 <option value="sleeping">Sleeping</option>
@@ -56,7 +57,7 @@
             <label>Owner Veil UID<input id="contactUid" maxlength="128" placeholder="UID from your Veil contact link"></label>
           </div>
           <button id="publish" type="button">Sync now</button>
-          <p class="fine">Status and decree changes sync automatically. Minimize keeps the companion running; closing it quits and marks the throne offline.</p>
+          <p class="fine">Automatic keeps you online for as long as the companion is running. Choose Busy, Sleeping, or Offline only when you want to publish that state. Minimize keeps it running; closing it quits and marks the throne offline.</p>
         </section>
 
         <section class="thread-panel">
